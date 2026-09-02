@@ -1,5 +1,3 @@
-**@"**
-
 **# 🚀 InvestAI**
 
 
@@ -36,19 +34,19 @@
 
 
 
-**- Provide a simple platform for investment management.**
+**\* Provide a simple platform for investment management.**
 
-**- Track investments and portfolio performance.**
+**\* Track investments and portfolio performance.**
 
-**- Manage wallet balance and transactions.**
+**\* Manage wallet balance and transactions.**
 
-**- Support SIP investment planning.**
+**\* Support SIP investment planning.**
 
-**- Provide market-related news and information.**
+**\* Provide market-related news and information.**
 
-**- Offer AI-powered investment assistance.**
+**\* Offer AI-powered investment assistance.**
 
-**- Maintain secure user authentication and data management.**
+**\* Maintain secure user authentication and data management.**
 
 
 
@@ -62,135 +60,155 @@
 
 **### 👤 User Management**
 
-**- User Registration**
 
-**- User Login**
 
-**- JWT-based Authentication**
+**\* User Registration**
 
-**- User Profile**
+**\* User Login**
 
-**- Application Settings**
+**\* JWT-based Authentication**
+
+**\* User Profile**
+
+**\* Application Settings**
 
 
 
 **### 📊 Dashboard**
 
-**- Wallet Balance**
 
-**- Portfolio Value**
 
-**- Investment Summary**
+**\* Wallet Balance**
 
-**- SIP Summary**
+**\* Portfolio Value**
 
-**- Investment Performance**
+**\* Investment Summary**
+
+**\* SIP Summary**
+
+**\* Investment Performance**
 
 
 
 **### 💰 Investment Management**
 
-**- View Available Investments**
 
-**- Buy Investments**
 
-**- Sell Investments**
+**\* View Available Investments**
 
-**- Track Investment Quantity**
+**\* Buy Investments**
 
-**- Calculate Investment Value**
+**\* Sell Investments**
+
+**\* Track Investment Quantity**
+
+**\* Calculate Investment Value**
 
 
 
 **### 📈 Portfolio**
 
-**- View Current Holdings**
 
-**- Invested Amount**
 
-**- Current Value**
+**\* View Current Holdings**
 
-**- Profit / Loss**
+**\* Invested Amount**
 
-**- Portfolio Summary**
+**\* Current Value**
+
+**\* Profit / Loss**
+
+**\* Portfolio Summary**
 
 
 
 **### 💳 Wallet**
 
-**- Wallet Balance**
 
-**- Add Funds**
 
-**- Investment Transactions**
+**\* Wallet Balance**
 
-**- Balance Updates**
+**\* Add Funds**
+
+**\* Investment Transactions**
+
+**\* Balance Updates**
 
 
 
 **### 🧾 Transactions**
 
-**- Buy Transactions**
 
-**- Sell Transactions**
 
-**- SIP Transactions**
+**\* Buy Transactions**
 
-**- Transaction History**
+**\* Sell Transactions**
 
-**- Investment Summary**
+**\* SIP Transactions**
+
+**\* Transaction History**
+
+**\* Investment Summary**
 
 
 
 **### 🔄 SIP Plans**
 
-**- Create SIP Plans**
 
-**- View Active SIP Plans**
 
-**- Manage SIP Investments**
+**\* Create SIP Plans**
 
-**- Track SIP Details**
+**\* View Active SIP Plans**
+
+**\* Manage SIP Investments**
+
+**\* Track SIP Details**
 
 
 
 **### 📰 Market News**
 
-**- View Market News**
 
-**- Display Investment-related Information**
 
-**- Market Information Dashboard**
+**\* View Market News**
+
+**\* Display Investment-related Information**
+
+**\* Market Information Dashboard**
 
 
 
 **### 🤖 AI Advisor**
 
-**- AI-powered investment assistance**
 
-**- Natural language questions**
 
-**- Investment-related guidance**
+**\* AI-powered investment assistance**
 
-**- Personalized responses**
+**\* Natural language questions**
 
-**- AI Chat History**
+**\* Investment-related guidance**
 
-**- Delete Chat History**
+**\* Personalized responses**
 
-**- Clear Chat History**
+**\* AI Chat History**
+
+**\* Delete Chat History**
+
+**\* Clear Chat History**
 
 
 
 **### 💬 AI Chat**
 
-**- Interactive AI conversation**
 
-**- Natural language interaction**
 
-**- Financial question answering**
+**\* Interactive AI conversation**
 
-**- Chat history management**
+**\* Natural language interaction**
+
+**\* Financial question answering**
+
+**\* Chat history management**
 
 
 
@@ -206,19 +224,19 @@
 
 
 
-**- React.js**
+**\* React.js**
 
-**- Vite**
+**\* Vite**
 
-**- JavaScript**
+**\* JavaScript**
 
-**- HTML5**
+**\* HTML5**
 
-**- CSS3**
+**\* CSS3**
 
-**- React Router**
+**\* React Router**
 
-**- React Markdown**
+**\* React Markdown**
 
 
 
@@ -226,23 +244,23 @@
 
 
 
-**- Node.js**
+**\* Node.js**
 
-**- Express.js**
+**\* Express.js**
 
-**- REST API**
+**\* REST API**
 
-**- MySQL**
+**\* MySQL**
 
-**- mysql2**
+**\* mysql2**
 
-**- JWT**
+**\* JWT**
 
-**- bcryptjs**
+**\* bcryptjs**
 
-**- dotenv**
+**\* dotenv**
 
-**- CORS**
+**\* CORS**
 
 
 
@@ -250,7 +268,7 @@
 
 
 
-**- OpenAI API**
+**\* OpenAI API**
 
 
 
@@ -258,15 +276,119 @@
 
 
 
-**- Visual Studio Code**
+**\* Visual Studio Code**
 
-**- Git**
+**\* Git**
 
-**- GitHub**
+**\* GitHub**
 
-**- Postman**
+**\* Postman**
 
-**- MySQL Workbench**
+**\* MySQL Workbench**
+
+
+
+**---**
+
+
+
+**## 📸 Screenshots**
+
+
+
+**### 🔐 Login**
+
+
+
+**!\[Login](screenshots/login.jpeg)**
+
+
+
+**### 📊 Dashboard**
+
+
+
+**!\[Dashboard](screenshots/dashboard.jpeg)**
+
+
+
+**### 📈 Investments**
+
+
+
+**!\[Investments](screenshots/investments.jpeg)**
+
+
+
+**### 💱 Buy \& Sell**
+
+
+
+**!\[Buy \& Sell](screenshots/buy-sell.jpeg)**
+
+
+
+**### 💼 Portfolio**
+
+
+
+**!\[Portfolio](screenshots/portfolio.jpeg)**
+
+
+
+**### 💰 Wallet**
+
+
+
+**!\[Wallet](screenshots/wallet.jpeg)**
+
+
+
+**### 🧾 Transactions**
+
+
+
+**!\[Transactions](screenshots/transactions.jpeg)**
+
+
+
+**### 🔄 SIP Plans**
+
+
+
+**!\[SIP Plans](screenshots/sip-plans.jpeg)**
+
+
+
+**### 📰 Market News**
+
+
+
+**!\[Market News](screenshots/market-news.jpeg)**
+
+
+
+**### 🤖 AI Investment Advisor**
+
+
+
+**!\[AI Investment Advisor](screenshots/ai-advisor.jpeg)**
+
+
+
+**### 👤 Profile**
+
+
+
+**!\[Profile](screenshots/profile.jpeg)**
+
+
+
+**### ⚙️ Settings**
+
+
+
+**!\[Settings](screenshots/settings.jpeg)**
 
 
 
@@ -282,7 +404,7 @@
 
 &#x20;                   **┌──────────────────────┐**
 
-&#x20;                   **│       User           │**
+&#x20;                   **│        User          │**
 
 &#x20;                   **└──────────┬───────────┘**
 
@@ -300,7 +422,7 @@
 
 &#x20;                              **│**
 
-&#x20;                        **REST API**
+&#x20;                         **REST API**
 
 &#x20;                              **│**
 
@@ -325,4 +447,474 @@
 &#x20;                  **│  Database  │ │  AI Advisor  │**
 
 &#x20;                  **└────────────┘ └──────────────┘**
+
+**```**
+
+
+
+**---**
+
+
+
+**## 🗂️ Project Structure**
+
+
+
+**```text**
+
+**InvestAI/**
+
+**│**
+
+**├── frontend/**
+
+**│   ├── src/**
+
+**│   │   ├── components/**
+
+**│   │   ├── pages/**
+
+**│   │   ├── services/**
+
+**│   │   ├── context/**
+
+**│   │   ├── hooks/**
+
+**│   │   └── assets/**
+
+**│   │**
+
+**│   ├── package.json**
+
+**│   └── vite.config.js**
+
+**│**
+
+**├── backend/**
+
+**│   ├── config/**
+
+**│   ├── controllers/**
+
+**│   ├── middleware/**
+
+**│   ├── models/**
+
+**│   ├── routes/**
+
+**│   ├── .env**
+
+**│   ├── package.json**
+
+**│   └── server.js**
+
+**│**
+
+**├── screenshots/**
+
+**│   ├── login.jpeg**
+
+**│   ├── dashboard.jpeg**
+
+**│   ├── investments.jpeg**
+
+**│   ├── buy-sell.jpeg**
+
+**│   ├── portfolio.jpeg**
+
+**│   ├── wallet.jpeg**
+
+**│   ├── transactions.jpeg**
+
+**│   ├── sip-plans.jpeg**
+
+**│   ├── market-news.jpeg**
+
+**│   ├── ai-advisor.jpeg**
+
+**│   ├── profile.jpeg**
+
+**│   └── settings.jpeg**
+
+**│**
+
+**└── README.md**
+
+**```**
+
+
+
+**---**
+
+
+
+**## 🗄️ Database Modules**
+
+
+
+**InvestAI uses MySQL for storing and managing application data.**
+
+
+
+**### Main Tables**
+
+
+
+**\* `users` – User account and authentication information**
+
+**\* `investments` – Available investment information**
+
+**\* `portfolio` – User investment holdings**
+
+**\* `transactions` – Buy, sell, and SIP transaction records**
+
+**\* `wallet` – User wallet and balance information**
+
+**\* `sip\_plans` – SIP investment plans**
+
+**\* `market\_news` – Market-related news information**
+
+**\* `ai\_chat\_history` – AI Advisor conversation history**
+
+
+
+**---**
+
+
+
+**## 🔄 Application Workflow**
+
+
+
+**```text**
+
+**User Registration / Login**
+
+&#x20;         **│**
+
+&#x20;         **▼**
+
+&#x20;     **Dashboard**
+
+&#x20;         **│**
+
+&#x20;   **┌─────┼───────────────┐**
+
+&#x20;   **▼     ▼               ▼**
+
+**Investments Portfolio    Wallet**
+
+&#x20;   **│       │               │**
+
+&#x20;   **▼       ▼               ▼**
+
+&#x20;**Buy/Sell  Holdings      Add Funds**
+
+&#x20;   **│       │               │**
+
+&#x20;   **└───────┼───────────────┘**
+
+&#x20;           **▼**
+
+&#x20;      **Transactions**
+
+&#x20;           **│**
+
+&#x20;           **▼**
+
+&#x20;        **SIP Plans**
+
+&#x20;           **│**
+
+&#x20;           **▼**
+
+&#x20;      **Market News**
+
+&#x20;           **│**
+
+&#x20;           **▼**
+
+&#x20;      **AI Advisor**
+
+&#x20;           **│**
+
+&#x20;           **▼**
+
+&#x20;      **AI Assistance**
+
+**```**
+
+
+
+**---**
+
+
+
+**## 🔐 Security**
+
+
+
+**InvestAI implements basic application security mechanisms including:**
+
+
+
+**\* JWT-based authentication**
+
+**\* Password hashing using bcryptjs**
+
+**\* Environment variables for sensitive configuration**
+
+**\* Protected API routes**
+
+**\* CORS configuration**
+
+**\* Secure database access**
+
+
+
+**> \*\*Note:\*\* API keys, database passwords, and other sensitive credentials should be stored only in the local `.env` file and should not be committed to GitHub.**
+
+
+
+**---**
+
+
+
+**## ⚙️ Installation and Setup**
+
+
+
+**### 1. Clone the Repository**
+
+
+
+**```bash**
+
+**git clone https://github.com/yazhini2127/InvestAI.git**
+
+**cd InvestAI**
+
+**```**
+
+
+
+**### 2. Backend Setup**
+
+
+
+**```bash**
+
+**cd backend**
+
+**npm install**
+
+**npm start**
+
+**```**
+
+
+
+**Create a `.env` file inside the `backend` folder:**
+
+
+
+**```env**
+
+**PORT=5000**
+
+**DB\_HOST=localhost**
+
+**DB\_USER=root**
+
+**DB\_PASSWORD=YOUR\_MYSQL\_PASSWORD**
+
+**DB\_NAME=invest\_ai**
+
+**JWT\_SECRET=YOUR\_JWT\_SECRET**
+
+**OPENAI\_API\_KEY=YOUR\_OPENAI\_API\_KEY**
+
+**```**
+
+
+
+**### 3. Frontend Setup**
+
+
+
+**Open another terminal:**
+
+
+
+**```bash**
+
+**cd frontend**
+
+**npm install**
+
+**npm run dev**
+
+**```**
+
+
+
+**The frontend will run using the Vite development server.**
+
+
+
+**---**
+
+
+
+**## 🌐 Application**
+
+
+
+**Frontend:**
+
+
+
+**```text**
+
+**http://localhost:5173**
+
+**```**
+
+
+
+**Backend:**
+
+
+
+**```text**
+
+**http://localhost:5000**
+
+**```**
+
+
+
+**---**
+
+
+
+**## 🧪 Testing Tools**
+
+
+
+**The backend REST APIs can be tested using:**
+
+
+
+**\* Postman**
+
+**\* Browser**
+
+**\* Frontend application**
+
+
+
+**Database operations can be verified using:**
+
+
+
+**\* MySQL Workbench**
+
+
+
+**---**
+
+
+
+**## 🚀 Future Enhancements**
+
+
+
+**Possible future improvements include:**
+
+
+
+**\* Real-time stock market data**
+
+**\* Advanced investment analytics**
+
+**\* AI-based portfolio recommendations**
+
+**\* Risk prediction**
+
+**\* Investment performance charts**
+
+**\* Stock price alerts**
+
+**\* Automated SIP reminders**
+
+**\* Mobile application**
+
+**\* Cloud deployment**
+
+**\* Advanced financial forecasting**
+
+**\* Enhanced AI-powered financial planning**
+
+
+
+**---**
+
+
+
+**## 🎓 Academic Project**
+
+
+
+**\*\*Project Name:\*\* InvestAI**
+
+**\*\*Project Type:\*\* Full-Stack Web Application**
+
+**\*\*Domain:\*\* Investment Management \& Artificial Intelligence**
+
+**\*\*Frontend:\*\* React.js + Vite**
+
+**\*\*Backend:\*\* Node.js + Express.js**
+
+**\*\*Database:\*\* MySQL**
+
+**\*\*AI Technology:\*\* OpenAI API**
+
+
+
+**This project was developed as an academic project to demonstrate practical knowledge of full-stack web development, database management, REST APIs, authentication, and Artificial Intelligence integration.**
+
+
+
+**---**
+
+
+
+**## 👩‍💻 Developer**
+
+
+
+**\*\*Yazhini\*\***
+
+
+
+**B.Sc. Computer Science**
+
+
+
+**GitHub: `yazhini2127`**
+
+
+
+**---**
+
+
+
+**## 📄 License**
+
+
+
+**This project is developed for educational and academic purposes.**
+
+
 
