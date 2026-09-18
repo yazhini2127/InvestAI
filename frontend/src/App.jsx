@@ -18,7 +18,27 @@ import BuySell from "./pages/BuySell";
 
 function App() {
 
-    const userId = 2;
+    // Get logged-in user's ID
+    const getUserId = () => {
+        try {
+            const user = JSON.parse(
+                localStorage.getItem("user") || "{}"
+            );
+
+            return (
+                user.user_id ||
+                user.userId ||
+                user.id ||
+                null
+            );
+
+        } catch (error) {
+            console.error("User Data Error:", error);
+            return null;
+        }
+    };
+
+    const userId = getUserId();
 
     // =====================================================
     // APPLY THEME
@@ -43,12 +63,19 @@ function App() {
     useEffect(() => {
 
         const loadTheme = async () => {
+
+            if (!userId) {
+                return;
+            }
+
             try {
+
                 const response = await api.get(
                     `/settings/${userId}`
                 );
 
                 if (response.data.success) {
+
                     const darkMode = Boolean(
                         response.data.settings.dark_mode
                     );
@@ -68,30 +95,32 @@ function App() {
                     error
                 );
 
-                // Fallback to localStorage
                 const savedTheme =
                     localStorage.getItem(
                         "investai_dark_mode"
                     );
 
                 if (savedTheme !== null) {
+
                     applyTheme(
                         savedTheme === "true"
                     );
+
                 }
             }
         };
 
         loadTheme();
 
-        // Listen for Settings page theme changes
         const handleThemeChange = (event) => {
 
             const darkMode =
                 event.detail?.darkMode;
 
             if (typeof darkMode === "boolean") {
+
                 applyTheme(darkMode);
+
             }
         };
 
@@ -101,90 +130,79 @@ function App() {
         );
 
         return () => {
+
             window.removeEventListener(
                 "investai-theme-change",
                 handleThemeChange
             );
+
         };
 
-    }, []);
+    }, [userId]);
 
     return (
         <Routes>
 
-            {/* Login */}
             <Route
                 path="/"
                 element={<Login />}
             />
 
-            {/* Register */}
             <Route
                 path="/register"
                 element={<Register />}
             />
 
-            {/* Dashboard */}
             <Route
                 path="/dashboard"
                 element={<Dashboard />}
             />
 
-            {/* Wallet */}
             <Route
                 path="/wallet"
                 element={<Wallet />}
             />
 
-            {/* Portfolio */}
             <Route
                 path="/portfolio"
                 element={<Portfolio />}
             />
 
-            {/* Investments */}
             <Route
                 path="/investments"
                 element={<Investments />}
             />
 
-            {/* Buy & Sell */}
             <Route
                 path="/buy-sell"
                 element={<BuySell />}
             />
 
-            {/* SIP Plans */}
             <Route
                 path="/sip-plans"
                 element={<SIPPlans />}
             />
 
-            {/* Settings */}
             <Route
                 path="/settings"
                 element={<Settings />}
             />
 
-            {/* AI Advisor */}
             <Route
                 path="/ai-advisor"
                 element={<AIAdvisor />}
             />
 
-            {/* Transactions */}
             <Route
                 path="/transactions"
                 element={<Transactions />}
             />
 
-            {/* Market News */}
             <Route
                 path="/market-news"
                 element={<MarketNews />}
             />
 
-            {/* Profile */}
             <Route
                 path="/profile"
                 element={<Profile />}
