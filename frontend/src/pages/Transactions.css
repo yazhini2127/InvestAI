@@ -1,0 +1,968 @@
+/* =========================================================
+   INVESTAI - TRANSACTIONS PAGE
+   ========================================================= */
+
+.transactions-page {
+    min-height: 100vh;
+    width: 100%;
+    padding: 30px;
+    background: #f5f7fb;
+    color: #172033;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 28px;
+}
+
+.transactions-header h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    font-weight: 800;
+    color: #172033;
+}
+
+.transactions-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 15px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-actions button {
+    padding: 11px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.header-actions button:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.header-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Export */
+
+.export-btn {
+    background: #ffffff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe !important;
+}
+
+.export-btn:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+/* Refresh */
+
+.refresh-btn {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+/* Clear */
+
+.clear-btn {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.clear-btn:hover:not(:disabled) {
+    background: #fecaca;
+}
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.transaction-error {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+
+    padding: 14px 18px;
+    margin-bottom: 22px;
+
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-radius: 12px;
+
+    color: #be123c;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.transaction-error button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+
+    background: #e11d48;
+    color: #ffffff;
+
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.transaction-error button:hover {
+    background: #be123c;
+}
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.transaction-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    min-height: 105px;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding: 18px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+
+    box-shadow: 0 5px 20px rgba(15, 23, 42, 0.06);
+
+    transition: 0.25s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+}
+
+.summary-icon {
+    width: 50px;
+    height: 50px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    font-size: 22px;
+    font-weight: 800;
+}
+
+/* Blue */
+
+.summary-icon.blue {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+/* Green */
+
+.summary-icon.green {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+/* Red */
+
+.summary-icon.red {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Purple */
+
+.summary-icon.purple {
+    background: #f3e8ff;
+    color: #9333ea;
+}
+
+/* Orange */
+
+.summary-icon.orange {
+    background: #ffedd5;
+    color: #ea580c;
+}
+
+.summary-card span {
+    display: block;
+    margin-bottom: 7px;
+
+    color: #7c8494;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.summary-card strong {
+    display: block;
+
+    color: #172033;
+    font-size: 20px;
+    font-weight: 800;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   SEARCH + FILTER
+   ========================================================= */
+
+.transaction-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 20px;
+
+    padding: 18px;
+    margin-bottom: 22px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+
+    box-shadow: 0 5px 20px rgba(15, 23, 42, 0.05);
+}
+
+/* Search */
+
+.search-box {
+    width: 320px;
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 0 14px;
+
+    background: #f8fafc;
+    border: 1px solid #dbe1ea;
+    border-radius: 10px;
+
+    transition: 0.2s ease;
+}
+
+.search-box:focus-within {
+    background: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-box span {
+    font-size: 17px;
+}
+
+.search-box input {
+    width: 100%;
+
+    border: none;
+    outline: none;
+
+    background: transparent;
+
+    color: #172033;
+    font-size: 14px;
+}
+
+.search-box input::placeholder {
+    color: #9ca3af;
+}
+
+/* Filter */
+
+.filter-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-buttons button {
+    padding: 9px 14px;
+
+    border: 1px solid #dbe1ea;
+    border-radius: 9px;
+
+    background: #ffffff;
+    color: #596579;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.filter-buttons button:hover {
+    background: #f3f6fa;
+}
+
+/* All */
+
+.filter-buttons button.active {
+    background: #172033;
+    border-color: #172033;
+    color: #ffffff;
+}
+
+/* Buy */
+
+.filter-buttons button.active.buy-filter {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+}
+
+/* Sell */
+
+.filter-buttons button.active.sell-filter {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+
+/* SIP */
+
+.filter-buttons button.active.sip-filter {
+    background: #9333ea;
+    border-color: #9333ea;
+    color: #ffffff;
+}
+
+/* Date */
+
+.filter-buttons input[type="date"] {
+    height: 38px;
+
+    padding: 0 10px;
+
+    border: 1px solid #dbe1ea;
+    border-radius: 9px;
+
+    background: #ffffff;
+    color: #596579;
+
+    font-size: 13px;
+    outline: none;
+
+    cursor: pointer;
+}
+
+.filter-buttons input[type="date"]:focus {
+    border-color: #2563eb;
+}
+
+/* Reset */
+
+.filter-buttons .reset-btn {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #2563eb;
+}
+
+.filter-buttons .reset-btn:hover {
+    background: #dbeafe;
+}
+
+/* =========================================================
+   TRANSACTION CONTAINER
+   ========================================================= */
+
+.transaction-container {
+    overflow: hidden;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+
+    box-shadow: 0 5px 20px rgba(15, 23, 42, 0.05);
+}
+
+/* Title */
+
+.transaction-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 20px 22px;
+
+    border-bottom: 1px solid #edf0f4;
+}
+
+.transaction-title h2 {
+    margin: 0 0 5px;
+
+    color: #172033;
+    font-size: 20px;
+    font-weight: 750;
+}
+
+.transaction-title p {
+    margin: 0;
+
+    color: #8a94a6;
+    font-size: 13px;
+}
+
+/* =========================================================
+   TRANSACTION LIST
+   ========================================================= */
+
+.transaction-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.transaction-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 20px;
+
+    padding: 20px 22px;
+
+    border-bottom: 1px solid #edf0f4;
+
+    transition: 0.2s ease;
+}
+
+.transaction-card:last-child {
+    border-bottom: none;
+}
+
+.transaction-card:hover {
+    background: #fafbff;
+}
+
+/* =========================================================
+   LEFT SIDE
+   ========================================================= */
+
+.transaction-left {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.transaction-icon {
+    width: 50px;
+    height: 50px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 13px;
+
+    font-size: 22px;
+    font-weight: 800;
+}
+
+/* BUY */
+
+.transaction-icon.buy {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+/* SELL */
+
+.transaction-icon.sell {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* SIP */
+
+.transaction-icon.sip {
+    background: #f3e8ff;
+    color: #9333ea;
+}
+
+/* =========================================================
+   TRANSACTION INFO
+   ========================================================= */
+
+.transaction-info {
+    min-width: 0;
+}
+
+.transaction-title-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    margin-bottom: 5px;
+}
+
+.transaction-title-row h2 {
+    max-width: 350px;
+
+    margin: 0;
+
+    color: #172033;
+
+    font-size: 16px;
+    font-weight: 750;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Investment type */
+
+.investment-type {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: #64748b;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+}
+
+/* Quantity */
+
+.transaction-info p {
+    margin: 0 0 6px;
+
+    color: #4b5563;
+
+    font-size: 13px;
+}
+
+/* Date */
+
+.transaction-info small {
+    color: #8a94a6;
+    font-size: 11px;
+}
+
+/* =========================================================
+   TYPE BADGE
+   ========================================================= */
+
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 4px 9px;
+
+    border-radius: 6px;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 0.4px;
+}
+
+.type-badge.buy {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.type-badge.sell {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.type-badge.sip {
+    background: #f3e8ff;
+    color: #7e22ce;
+}
+
+/* =========================================================
+   RIGHT SIDE
+   ========================================================= */
+
+.transaction-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    flex-shrink: 0;
+}
+
+.transaction-right > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    gap: 5px;
+}
+
+.transaction-right strong {
+    color: #172033;
+
+    font-size: 18px;
+    font-weight: 800;
+
+    white-space: nowrap;
+}
+
+.completed {
+    color: #16a34a;
+
+    font-size: 11px;
+    font-weight: 650;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   DELETE BUTTON
+   ========================================================= */
+
+.transaction-delete {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 9px;
+
+    background: #fff1f2;
+    color: #dc2626;
+
+    font-size: 15px;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.transaction-delete:hover {
+    background: #fee2e2;
+    transform: scale(1.08);
+}
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.empty-state {
+    min-height: 280px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 40px 20px;
+
+    text-align: center;
+}
+
+.empty-icon {
+    width: 70px;
+    height: 70px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 16px;
+
+    border-radius: 50%;
+
+    background: #eff6ff;
+
+    font-size: 30px;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+
+    color: #273247;
+
+    font-size: 19px;
+    font-weight: 750;
+}
+
+.empty-state p {
+    max-width: 430px;
+
+    margin: 0;
+
+    color: #8a94a6;
+
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.empty-state .reset-btn {
+    margin-top: 17px;
+
+    padding: 9px 17px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #2563eb;
+    color: #ffffff;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.empty-state .reset-btn:hover {
+    background: #1d4ed8;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.transactions-footer {
+    padding: 25px 0 8px;
+
+    text-align: center;
+
+    color: #9ca3af;
+
+    font-size: 12px;
+}
+
+/* =========================================================
+   TABLET - 1200px
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+    .transaction-summary {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .transaction-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-box {
+        width: 100%;
+    }
+
+    .filter-buttons {
+        justify-content: flex-start;
+    }
+}
+
+/* =========================================================
+   TABLET - 900px
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .transactions-page {
+        padding: 22px;
+    }
+
+    .transactions-header {
+        flex-direction: column;
+    }
+
+    .header-actions {
+        width: 100%;
+    }
+
+    .transaction-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .transaction-card {
+        align-items: flex-start;
+    }
+
+    .transaction-right {
+        gap: 12px;
+    }
+}
+
+/* =========================================================
+   MOBILE - 650px
+   ========================================================= */
+
+@media (max-width: 650px) {
+
+    .transactions-page {
+        padding: 15px;
+    }
+
+    .transactions-header h1 {
+        font-size: 25px;
+    }
+
+    .transactions-header p {
+        font-size: 13px;
+    }
+
+    .header-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .header-actions button {
+        width: 100%;
+    }
+
+    .transaction-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-card {
+        min-height: 90px;
+    }
+
+    .transaction-controls {
+        padding: 14px;
+    }
+
+    .filter-buttons {
+        justify-content: flex-start;
+    }
+
+    .filter-buttons button {
+        flex: 1;
+        min-width: 80px;
+    }
+
+    .filter-buttons input[type="date"] {
+        width: 100%;
+    }
+
+    .transaction-title {
+        padding: 17px;
+    }
+
+    .transaction-card {
+        flex-direction: column;
+        align-items: stretch;
+
+        padding: 17px;
+    }
+
+    .transaction-left {
+        width: 100%;
+    }
+
+    .transaction-title-row h2 {
+        max-width: 230px;
+    }
+
+    .transaction-right {
+        width: 100%;
+
+        justify-content: space-between;
+
+        padding-left: 65px;
+    }
+
+    .transaction-right > div {
+        align-items: flex-start;
+    }
+}
+
+/* =========================================================
+   SMALL MOBILE - 450px
+   ========================================================= */
+
+@media (max-width: 450px) {
+
+    .transactions-page {
+        padding: 12px;
+    }
+
+    .transactions-header h1 {
+        font-size: 22px;
+    }
+
+    .transaction-summary {
+        gap: 10px;
+    }
+
+    .summary-card {
+        padding: 14px;
+    }
+
+    .summary-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+    }
+
+    .summary-card strong {
+        font-size: 17px;
+    }
+
+    .transaction-title-row {
+        flex-wrap: wrap;
+    }
+
+    .transaction-title-row h2 {
+        max-width: 190px;
+        font-size: 15px;
+    }
+
+    .transaction-right {
+        padding-left: 0;
+    }
+
+    .transaction-right strong {
+        font-size: 16px;
+    }
+}

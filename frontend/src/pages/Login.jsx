@@ -1,18 +1,65 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import "./Login.css";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    console.log({
-      email,
-      password,
-    });
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/auth/login",
+        {
+          email,
+          password,
+        }
+      );
+
+      console.log("Login Response:", response.data);
+
+      // Save token
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
+      }
+
+      // Save user information if available
+      if (response.data.user) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify(response.data.user)
+        );
+      }
+
+      // Go to Dashboard
+      navigate("/dashboard");
+
+    } catch (err) {
+      console.error("Login Error:", err);
+
+      if (err.response) {
+        setError(
+          err.response.data.message ||
+          "Invalid email or password"
+        );
+      } else {
+        setError(
+          "Cannot connect to server. Please make sure backend is running."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -20,7 +67,10 @@ function Login() {
       <div className="login-card">
 
         <h1>InvestAI</h1>
-        <p>AI Powered Investment Management System</p>
+
+        <p>
+          AI Powered Investment Management System
+        </p>
 
         <form onSubmit={handleLogin}>
 
@@ -44,8 +94,14 @@ function Login() {
             required
           />
 
-          <button type="submit">
-            Login
+          {error && (
+            <p className="error-message">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
           </button>
 
         </form>

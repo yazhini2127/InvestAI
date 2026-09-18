@@ -1,350 +1,592 @@
-import { useEffect, useState } from "react";
-import api from "../services/api";
+import { useState } from "react";
+import "./SIPPlans.css";
 
-function SIPPlans() {
-    const [sipPlans, setSipPlans] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+const defaultPlans = [
+  {
+    id: 3,
+    investment: "Investment #1",
+    amount: 2000,
+    date: 25,
+    status: "Paused",
+  },
+  {
+    id: 2,
+    investment: "Investment #1",
+    amount: 3000,
+    date: 15,
+    status: "Active",
+  },
+  {
+    id: 1,
+    investment: "Investment #1",
+    amount: 5000,
+    date: 10,
+    status: "Active",
+  },
+];
 
-    const userId = 2;
+function getInitialPlans() {
+  try {
+    const saved = localStorage.getItem("investai_sip_plans");
 
-    useEffect(() => {
-        let ignore = false;
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    return defaultPlans;
+  }
 
-        const loadSIPPlans = async () => {
-            try {
-                const response = await api.get(
-                    `/sip-plans/${userId}`
-                );
-
-                console.log("SIP API Response:", response.data);
-
-                if (!ignore) {
-                    if (response.data.success) {
-                        setSipPlans(
-                            response.data.sipPlans || []
-                        );
-                    } else {
-                        setError("Failed to load SIP plans");
-                    }
-
-                    setLoading(false);
-                }
-            } catch (err) {
-                console.error("SIP Error:", err);
-
-                if (!ignore) {
-                    setError(
-                        err.response?.data?.message ||
-                        "Failed to load SIP plans"
-                    );
-
-                    setLoading(false);
-                }
-            }
-        };
-
-        loadSIPPlans();
-
-        return () => {
-            ignore = true;
-        };
-    }, []);
-
-    const refreshSIPPlans = async () => {
-        try {
-            setLoading(true);
-            setError("");
-
-            const response = await api.get(
-                `/sip-plans/${userId}`
-            );
-
-            if (response.data.success) {
-                setSipPlans(
-                    response.data.sipPlans || []
-                );
-            }
-        } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                "Failed to load SIP plans"
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div style={styles.container}>
-
-            {/* Header */}
-            <div style={styles.header}>
-                <div>
-                    <h1 style={styles.title}>
-                        📅 SIP Plans
-                    </h1>
-
-                    <p style={styles.subtitle}>
-                        Manage your systematic investment plans
-                    </p>
-                </div>
-
-                <button
-                    style={styles.refreshButton}
-                    onClick={refreshSIPPlans}
-                >
-                    🔄 Refresh
-                </button>
-            </div>
-
-            {/* Loading */}
-            {loading && (
-                <div style={styles.message}>
-                    Loading SIP plans...
-                </div>
-            )}
-
-            {/* Error */}
-            {!loading && error && (
-                <div style={styles.error}>
-                    {error}
-                </div>
-            )}
-
-            {/* Empty */}
-            {!loading &&
-                !error &&
-                sipPlans.length === 0 && (
-                    <div style={styles.empty}>
-                        <h2>No SIP Plans Yet</h2>
-
-                        <p>
-                            You don't have any SIP plans.
-                        </p>
-                    </div>
-                )}
-
-            {/* SIP Plans */}
-            {!loading &&
-                !error &&
-                sipPlans.length > 0 && (
-                    <div style={styles.grid}>
-
-                        {sipPlans.map((sip) => (
-                            <div
-                                key={sip.sip_id}
-                                style={styles.card}
-                            >
-
-                                <div style={styles.cardHeader}>
-                                    <div>
-                                        <h2 style={styles.planTitle}>
-                                            SIP Plan #{sip.sip_id}
-                                        </h2>
-
-                                        <span
-                                            style={{
-                                                ...styles.badge,
-                                                ...(sip.status === "Active"
-                                                    ? styles.active
-                                                    : sip.status === "Paused"
-                                                    ? styles.paused
-                                                    : styles.cancelled),
-                                            }}
-                                        >
-                                            {sip.status}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div style={styles.details}>
-
-                                    <div style={styles.detailBox}>
-                                        <span style={styles.label}>
-                                            Investment
-                                        </span>
-
-                                        <strong style={styles.value}>
-                                            Investment #{sip.investment_id}
-                                        </strong>
-                                    </div>
-
-                                    <div style={styles.detailBox}>
-                                        <span style={styles.label}>
-                                            Monthly Amount
-                                        </span>
-
-                                        <strong style={styles.value}>
-                                            ₹
-                                            {Number(
-                                                sip.monthly_amount
-                                            ).toLocaleString("en-IN")}
-                                        </strong>
-                                    </div>
-
-                                    <div style={styles.detailBox}>
-                                        <span style={styles.label}>
-                                            SIP Date
-                                        </span>
-
-                                        <strong style={styles.value}>
-                                            {sip.sip_date}
-                                            {sip.sip_date === 1
-                                                ? "st"
-                                                : sip.sip_date === 2
-                                                ? "nd"
-                                                : sip.sip_date === 3
-                                                ? "rd"
-                                                : "th"}{" "}
-                                            of every month
-                                        </strong>
-                                    </div>
-
-                                </div>
-
-                            </div>
-                        ))}
-
-                    </div>
-                )}
-
-        </div>
-    );
+  return defaultPlans;
 }
 
-const styles = {
-    container: {
-        minHeight: "100vh",
-        padding: "40px",
-        background: "#f5f7fb",
-        fontFamily: "Arial, sans-serif",
-    },
+function SIPPlans() {
+  const [plans, setPlans] = useState(getInitialPlans);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
-    header: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "30px",
-    },
+  const [form, setForm] = useState({
+    investment: "Investment #1",
+    amount: "",
+    date: "",
+  });
 
-    title: {
-        margin: 0,
-        fontSize: "32px",
-        color: "#1f2937",
-    },
+  const savePlans = (newPlans) => {
+    setPlans(newPlans);
 
-    subtitle: {
-        marginTop: "8px",
-        color: "#6b7280",
-    },
+    localStorage.setItem(
+      "investai_sip_plans",
+      JSON.stringify(newPlans)
+    );
+  };
 
-    refreshButton: {
-        padding: "10px 20px",
-        border: "none",
-        borderRadius: "8px",
-        background: "#2563eb",
-        color: "white",
-        cursor: "pointer",
-        fontSize: "15px",
-    },
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-    grid: {
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(auto-fit, minmax(350px, 1fr))",
-        gap: "20px",
-    },
+    setForm((oldForm) => ({
+      ...oldForm,
+      [name]: value,
+    }));
+  };
 
-    card: {
-        background: "white",
-        borderRadius: "14px",
-        padding: "24px",
-        boxShadow:
-            "0 4px 15px rgba(0,0,0,0.08)",
-    },
+  const openCreateForm = () => {
+    setEditingId(null);
 
-    cardHeader: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: "25px",
-    },
+    setForm({
+      investment: "Investment #1",
+      amount: "",
+      date: "",
+    });
 
-    planTitle: {
-        margin: 0,
-        fontSize: "21px",
-        color: "#111827",
-    },
+    setShowForm(true);
+  };
 
-    badge: {
-        display: "inline-block",
-        marginTop: "8px",
-        padding: "5px 12px",
-        borderRadius: "20px",
-        fontSize: "12px",
-        fontWeight: "bold",
-    },
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
 
-    active: {
-        background: "#dcfce7",
-        color: "#166534",
-    },
+    setForm({
+      investment: "Investment #1",
+      amount: "",
+      date: "",
+    });
+  };
 
-    paused: {
-        background: "#fef3c7",
-        color: "#92400e",
-    },
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-    cancelled: {
-        background: "#fee2e2",
-        color: "#991b1b",
-    },
+    const amount = Number(form.amount);
+    const date = Number(form.date);
 
-    details: {
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(3, 1fr)",
-        gap: "12px",
-    },
+    if (!amount || amount < 500) {
+      alert("Minimum SIP amount is ₹500");
+      return;
+    }
 
-    detailBox: {
-        padding: "14px",
-        borderRadius: "10px",
-        background: "#f9fafb",
-    },
+    if (!date || date < 1 || date > 28) {
+      alert("SIP date must be between 1 and 28");
+      return;
+    }
 
-    label: {
-        display: "block",
-        fontSize: "12px",
-        color: "#6b7280",
-        marginBottom: "6px",
-    },
+    if (editingId !== null) {
+      const updatedPlans = plans.map((plan) => {
+        if (plan.id === editingId) {
+          return {
+            ...plan,
+            investment: form.investment,
+            amount: amount,
+            date: date,
+          };
+        }
 
-    value: {
-        fontSize: "15px",
-        color: "#111827",
-    },
+        return plan;
+      });
 
-    message: {
-        textAlign: "center",
-        padding: "50px",
-        color: "#6b7280",
-    },
+      savePlans(updatedPlans);
 
-    error: {
-        padding: "20px",
-        background: "#fee2e2",
-        color: "#b91c1c",
-        borderRadius: "10px",
-    },
+      alert("SIP updated successfully!");
 
-    empty: {
-        textAlign: "center",
-        padding: "70px",
-        background: "white",
-        borderRadius: "14px",
-    },
-};
+      closeForm();
+
+      return;
+    }
+
+    const highestId =
+      plans.length > 0
+        ? Math.max(
+            ...plans.map(
+              (plan) => Number(plan.id) || 0
+            )
+          )
+        : 0;
+
+    const newPlan = {
+      id: highestId + 1,
+      investment: form.investment,
+      amount: amount,
+      date: date,
+      status: "Active",
+    };
+
+    savePlans([newPlan, ...plans]);
+
+    alert("SIP created successfully!");
+
+    closeForm();
+  };
+
+  const editPlan = (plan) => {
+    setEditingId(plan.id);
+
+    setForm({
+      investment: plan.investment,
+      amount: String(plan.amount),
+      date: String(plan.date),
+    });
+
+    setShowForm(true);
+  };
+
+  const togglePlan = (id) => {
+    const updatedPlans = plans.map((plan) => {
+      if (plan.id === id) {
+        return {
+          ...plan,
+          status:
+            plan.status === "Active"
+              ? "Paused"
+              : "Active",
+        };
+      }
+
+      return plan;
+    });
+
+    savePlans(updatedPlans);
+  };
+
+  const deletePlan = (id) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this SIP?"
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    const updatedPlans = plans.filter(
+      (plan) => plan.id !== id
+    );
+
+    savePlans(updatedPlans);
+
+    alert("SIP deleted successfully!");
+  };
+
+  const refreshPlans = () => {
+    try {
+      const saved = localStorage.getItem(
+        "investai_sip_plans"
+      );
+
+      if (saved) {
+        setPlans(JSON.parse(saved));
+      } else {
+        setPlans(defaultPlans);
+      }
+
+      alert("SIP plans refreshed!");
+    } catch {
+      setPlans(defaultPlans);
+      alert("Unable to refresh SIP plans.");
+    }
+  };
+
+  const activePlans = plans.filter(
+    (plan) => plan.status === "Active"
+  );
+
+  const monthlyAmount = activePlans.reduce(
+    (total, plan) =>
+      total + Number(plan.amount),
+    0
+  );
+
+  return (
+    <div className="sip-page">
+
+      {/* HEADER */}
+
+      <div className="sip-header">
+
+        <div>
+          <h1>📅 SIP Plans</h1>
+
+          <p>
+            Manage your systematic investment plans
+          </p>
+        </div>
+
+        <div className="sip-header-actions">
+
+          <button
+            className="refresh-btn"
+            onClick={refreshPlans}
+          >
+            🔄 Refresh
+          </button>
+
+          <button
+            className="add-sip-btn"
+            onClick={openCreateForm}
+          >
+            + Create SIP
+          </button>
+
+        </div>
+
+      </div>
+
+
+      {/* SUMMARY */}
+
+      <div className="sip-summary">
+
+        <div className="summary-card">
+
+          <span>
+            Active SIPs
+          </span>
+
+          <strong>
+            {activePlans.length}
+          </strong>
+
+        </div>
+
+
+        <div className="summary-card">
+
+          <span>
+            Monthly Investment
+          </span>
+
+          <strong>
+            ₹
+            {monthlyAmount.toLocaleString(
+              "en-IN"
+            )}
+          </strong>
+
+        </div>
+
+
+        <div className="summary-card">
+
+          <span>
+            Total SIP Plans
+          </span>
+
+          <strong>
+            {plans.length}
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      {/* FORM */}
+
+      {showForm && (
+
+        <div className="sip-form-card">
+
+          <h2>
+            {editingId !== null
+              ? "✏️ Edit SIP"
+              : "➕ Create New SIP"}
+          </h2>
+
+          <form onSubmit={handleSubmit}>
+
+            <div className="form-group">
+
+              <label>
+                Investment
+              </label>
+
+              <select
+                name="investment"
+                value={form.investment}
+                onChange={handleChange}
+              >
+
+                <option value="Investment #1">
+                  Investment #1
+                </option>
+
+                <option value="Tata Motors">
+                  Tata Motors
+                </option>
+
+                <option value="TVS Motor">
+                  TVS Motor
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div className="form-group">
+
+              <label>
+                Monthly Amount
+              </label>
+
+              <input
+                type="number"
+                name="amount"
+                value={form.amount}
+                onChange={handleChange}
+                placeholder="Enter amount"
+                min="500"
+              />
+
+            </div>
+
+
+            <div className="form-group">
+
+              <label>
+                SIP Date
+              </label>
+
+              <input
+                type="number"
+                name="date"
+                value={form.date}
+                onChange={handleChange}
+                placeholder="1 - 28"
+                min="1"
+                max="28"
+              />
+
+            </div>
+
+
+            <div className="form-buttons">
+
+              <button
+                type="submit"
+                className="save-btn"
+              >
+                {editingId !== null
+                  ? "Update SIP"
+                  : "Create SIP"}
+              </button>
+
+
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={closeForm}
+              >
+                Cancel
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+      )}
+
+
+      {/* SIP LIST */}
+
+      <div className="sip-list">
+
+        {plans.length === 0 ? (
+
+          <div className="empty-state">
+
+            <div>
+              📅
+            </div>
+
+            <h2>
+              No SIP Plans
+            </h2>
+
+            <p>
+              Create your first SIP plan.
+            </p>
+
+            <button
+              className="add-sip-btn"
+              onClick={openCreateForm}
+            >
+              + Create SIP
+            </button>
+
+          </div>
+
+        ) : (
+
+          plans.map((plan) => (
+
+            <div
+              className="sip-card"
+              key={plan.id}
+            >
+
+              <div className="sip-card-top">
+
+                <div>
+
+                  <h2>
+                    📅 SIP Plan #{plan.id}
+                  </h2>
+
+                  <span
+                    className={
+                      plan.status === "Active"
+                        ? "status active"
+                        : "status paused"
+                    }
+                  >
+                    {plan.status}
+                  </span>
+
+                </div>
+
+
+                <div className="sip-actions">
+
+                  <button
+                    className="edit-btn"
+                    onClick={() =>
+                      editPlan(plan)
+                    }
+                  >
+                    ✏️ Edit
+                  </button>
+
+
+                  <button
+                    className="toggle-btn"
+                    onClick={() =>
+                      togglePlan(plan.id)
+                    }
+                  >
+                    {plan.status === "Active"
+                      ? "⏸️ Pause"
+                      : "▶️ Resume"}
+                  </button>
+
+
+                  <button
+                    className="delete-btn"
+                    onClick={() =>
+                      deletePlan(plan.id)
+                    }
+                  >
+                    🗑️ Delete
+                  </button>
+
+                </div>
+
+              </div>
+
+
+              <div className="sip-details">
+
+                <div>
+
+                  <span>
+                    Investment
+                  </span>
+
+                  <strong>
+                    {plan.investment}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span>
+                    Monthly Amount
+                  </span>
+
+                  <strong>
+                    ₹
+                    {Number(
+                      plan.amount
+                    ).toLocaleString(
+                      "en-IN"
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span>
+                    SIP Date
+                  </span>
+
+                  <strong>
+                    {plan.date}th of every month
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          ))
+
+        )}
+
+      </div>
+
+
+      {/* FOOTER */}
+
+      <footer className="sip-footer">
+
+        © 2026 InvestAI • Smart Investing with AI
+
+      </footer>
+
+    </div>
+  );
+}
 
 export default SIPPlans;

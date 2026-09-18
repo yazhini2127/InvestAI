@@ -3,14 +3,22 @@ const express = require("express");
 const router = express.Router();
 
 const {
-    askAdvisor,
+    askAIAdvisor,
     getChatHistory,
+    deleteChatHistory,
+    clearChatHistory
 } = require("../controllers/AIAdvisorController");
 
 // Ask AI Advisor
-router.post("/ask", askAdvisor);
+router.post("/advisor", askAIAdvisor);
 
-// Chat History
-router.get("/history/:user_id", getChatHistory);
+// Get user's chat history
+router.get("/chat-history/:userId", getChatHistory);
+
+// Delete one conversation
+router.delete("/chat-history/:id", deleteChatHistory);
+
+// Clear all conversations for user
+router.delete("/chat-history/user/:userId", clearChatHistory);
 
 module.exports = router;
