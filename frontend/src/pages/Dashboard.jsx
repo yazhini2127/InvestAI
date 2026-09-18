@@ -19,8 +19,7 @@ import {
 
 import "./Dashboard.css";
 
-const API_URL = "http://localhost:5000/api";
-
+const API_URL = "https://investai-tww5.onrender.com/api";
 function Dashboard() {
 
     const navigate = useNavigate();

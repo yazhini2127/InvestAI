@@ -6,7 +6,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://investai-tww5.onrender.com/api";
 
 // ======================================================
 // GET USER ID
