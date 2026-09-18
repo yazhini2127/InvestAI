@@ -4,7 +4,7 @@ const router = express.Router();
 const {
   register,
   login,
-} = require("../controllers/AuthController");
+} = require("../controllers/authController");
 
 // ==========================
 // Register
