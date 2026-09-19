@@ -5,49 +5,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-
-const API_URL = "https://investai-tww5.onrender.com/api";
-
-// ======================================================
-// GET USER ID
-// ======================================================
-
-const getUserId = () => {
-  const storedUser =
-    localStorage.getItem("user") ||
-    localStorage.getItem("userData");
-
-  if (storedUser) {
-    try {
-      const user = JSON.parse(storedUser);
-
-      return (
-        user.user_id ??
-        user.userId ??
-        user.id ??
-        localStorage.getItem("userId") ??
-        localStorage.getItem("user_id") ??
-        1
-      );
-    } catch {
-      return (
-        localStorage.getItem("userId") ||
-        localStorage.getItem("user_id") ||
-        1
-      );
-    }
-  }
-
-  return (
-    localStorage.getItem("userId") ||
-    localStorage.getItem("user_id") ||
-    1
-  );
-};
-
-// ======================================================
-// PORTFOLIO COMPONENT
-// ======================================================
+import api from "../services/api";
 
 const Portfolio = () => {
   const navigate = useNavigate();
@@ -58,973 +16,948 @@ const Portfolio = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // ====================================================
-  // LOAD PORTFOLIO
-  // ====================================================
-
+  // Load logged-in user's portfolio
   const loadPortfolio = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const userId = getUserId();
+      const response = await api.get("/portfolio");
 
-      console.log(
-        "📊 Loading portfolio for user:",
-        userId
-      );
+      console.log("📊 Portfolio response:", response.data);
 
-      const response = await fetch(
-        `${API_URL}/portfolio/${userId}`
-      );
-
-      if (!response.ok) {
+      if (!response.data?.success) {
         throw new Error(
-          `Server error: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
-
-      console.log(
-        "📊 Portfolio response:",
-        data
-      );
-
-      if (!data.success) {
-        throw new Error(
-          data.message ||
-            "Failed to load portfolio"
+          response.data?.message || "Failed to load portfolio"
         );
       }
 
       setPortfolio(
-        Array.isArray(data.portfolio)
-          ? data.portfolio
+        Array.isArray(response.data.portfolio)
+          ? response.data.portfolio
           : []
       );
     } catch (err) {
-      console.error(
-        "❌ Portfolio Load Error:",
-        err
-      );
+      console.error("❌ Portfolio Load Error:", err);
 
       setPortfolio([]);
 
-      setError(
-        err.message ||
-          "Failed to load portfolio"
-      );
+      if (err.response?.status === 401) {
+        setError("Session expired. Please login again.");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to load portfolio"
+        );
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ====================================================
-  // INITIAL LOAD
-  // ====================================================
-
+  // Initial portfolio loading
   useEffect(() => {
-    let active = true;
+    let cancelled = false;
 
-    const fetchInitialPortfolio = async () => {
+    const fetchPortfolio = async () => {
       try {
-        const userId = getUserId();
+        setError("");
 
-        const response = await fetch(
-          `${API_URL}/portfolio/${userId}`
+        const response = await api.get("/portfolio");
+
+        console.log(
+          "📊 Initial Portfolio response:",
+          response.data
         );
 
-        if (!response.ok) {
+        if (!response.data?.success) {
           throw new Error(
-            `Server error: ${response.status}`
-          );
-        }
-
-        const data = await response.json();
-
-        if (!active) return;
-
-        if (!data.success) {
-          throw new Error(
-            data.message ||
+            response.data?.message ||
               "Failed to load portfolio"
           );
         }
 
+        if (cancelled) return;
+
         setPortfolio(
-          Array.isArray(data.portfolio)
-            ? data.portfolio
+          Array.isArray(response.data.portfolio)
+            ? response.data.portfolio
             : []
         );
       } catch (err) {
-        if (!active) return;
+        if (cancelled) return;
 
         console.error(
           "❌ Initial Portfolio Error:",
           err
         );
 
-        setError(
-          err.message ||
-            "Failed to load portfolio"
-        );
-
         setPortfolio([]);
+
+        if (err.response?.status === 401) {
+          setError(
+            "Session expired. Please login again."
+          );
+        } else {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to load portfolio"
+          );
+        }
       } finally {
-        if (active) {
+        if (!cancelled) {
           setLoading(false);
         }
       }
     };
 
-    fetchInitialPortfolio();
+    fetchPortfolio();
 
     return () => {
-      active = false;
+      cancelled = true;
     };
   }, []);
 
-  // ====================================================
-  // DELETE INVESTMENT
-  // ====================================================
+  // Delete portfolio investment
+  const handleDelete = async (portfolioId) => {
+    if (!portfolioId) return;
 
-  const deleteInvestment = async (
-    portfolioId
-  ) => {
-    const confirmed = window.confirm(
+    const confirmDelete = window.confirm(
       "Are you sure you want to delete this investment?"
     );
 
-    if (!confirmed) return;
+    if (!confirmDelete) return;
 
     try {
       setDeletingId(portfolioId);
       setError("");
       setSuccess("");
 
-      const response = await fetch(
-        `${API_URL}/portfolio/${portfolioId}`,
-        {
-          method: "DELETE",
-        }
+      const response = await api.delete(
+        `/portfolio/${portfolioId}`
       );
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!response.data?.success) {
         throw new Error(
-          data.message ||
+          response.data?.message ||
             "Failed to delete investment"
         );
       }
 
-      setPortfolio((current) =>
-        current.filter(
-          (item) =>
-            item.portfolio_id !==
-            portfolioId
-        )
+      setSuccess(
+        response.data?.message ||
+          "Investment deleted successfully"
       );
 
-      setSuccess(
-        "Investment deleted successfully."
+      setPortfolio((prev) =>
+        prev.filter(
+          (item) =>
+            item.portfolio_id !== portfolioId
+        )
       );
     } catch (err) {
       console.error(
-        "❌ Delete Error:",
+        "❌ Portfolio Delete Error:",
         err
       );
 
-      setError(
-        err.message ||
-          "Failed to delete investment"
-      );
+      if (err.response?.status === 401) {
+        setError(
+          "Session expired. Please login again."
+        );
+      } else {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to delete investment"
+        );
+      }
     } finally {
       setDeletingId(null);
     }
   };
 
-  // ====================================================
-  // TOTAL INVESTED
-  // ====================================================
-
+  // Calculate total invested amount
   const totalInvested = useMemo(() => {
     return portfolio.reduce(
       (total, item) =>
-        total +
-        Number(
-          item.invested_amount || 0
-        ),
+        total + Number(item.invested_amount || 0),
       0
     );
   }, [portfolio]);
 
-  // ====================================================
-  // CURRENT VALUE
-  // ====================================================
-
+  // Calculate current value
   const currentValue = useMemo(() => {
-    return portfolio.reduce(
-      (total, item) => {
-        const quantity = Number(
-          item.quantity || 0
-        );
+    return portfolio.reduce((total, item) => {
+      const quantity = Number(item.quantity || 0);
+      const currentPrice = Number(
+        item.current_price || 0
+      );
 
-        const currentPrice = Number(
-          item.current_price || 0
-        );
-
-        return (
-          total +
-          quantity * currentPrice
-        );
-      },
-      0
-    );
+      return total + quantity * currentPrice;
+    }, 0);
   }, [portfolio]);
 
-  // ====================================================
-  // PROFIT / LOSS
-  // ====================================================
+  // Calculate profit / loss
+  const profitLoss = useMemo(() => {
+    return currentValue - totalInvested;
+  }, [currentValue, totalInvested]);
 
-  const totalProfitLoss =
-    currentValue - totalInvested;
+  // Calculate return percentage
+  const returnPercentage = useMemo(() => {
+    if (totalInvested === 0) return 0;
 
-  // ====================================================
-  // RETURN %
-  // ====================================================
+    return (profitLoss / totalInvested) * 100;
+  }, [profitLoss, totalInvested]);
 
-  const totalReturn =
-    totalInvested > 0
-      ? (totalProfitLoss /
-          totalInvested) *
-        100
-      : 0;
-
-  // ====================================================
-  // FORMAT MONEY
-  // ====================================================
-
-  const formatMoney = (amount) => {
-    return Number(
-      amount || 0
-    ).toLocaleString("en-IN", {
+  // Currency formatter
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    }).format(Number(value || 0));
   };
 
-  // ====================================================
-  // FORMAT DATE
-  // ====================================================
-
+  // Date formatter
   const formatDate = (date) => {
-    if (!date) return "N/A";
+    if (!date) return "-";
 
     const parsedDate = new Date(date);
 
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return "N/A";
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "-";
     }
 
-    return parsedDate.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }
-    );
+    return parsedDate.toLocaleDateString("en-IN");
   };
-
-  // ====================================================
-  // RISK STYLE
-  // ====================================================
-
-  const getRiskStyle = (risk) => {
-    const value = String(
-      risk || ""
-    ).toLowerCase();
-
-    if (value === "low") {
-      return "bg-green-100 text-green-700";
-    }
-
-    if (value === "high") {
-      return "bg-red-100 text-red-700";
-    }
-
-    return "bg-yellow-100 text-yellow-700";
-  };
-
-  // ====================================================
-  // LOADING
-  // ====================================================
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center">
-
-          <div className="text-6xl mb-4">
-            📈
-          </div>
-
-          <h2 className="text-2xl font-bold text-slate-800">
-            Loading Portfolio...
-          </h2>
-
-          <p className="mt-2 text-slate-500">
-            Fetching your investments
-          </p>
-
-        </div>
-      </div>
-    );
-  }
-
-  // ====================================================
-  // MAIN UI
-  // ====================================================
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div
+      style={{
+        padding: "30px",
+        minHeight: "100vh",
+        background: "#f8fafc",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "25px",
+          gap: "15px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "30px",
+              fontWeight: "700",
+              color: "#111827",
+            }}
+          >
+            My Portfolio
+          </h1>
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+          <p
+            style={{
+              marginTop: "8px",
+              color: "#6b7280",
+            }}
+          >
+            Track your investments and portfolio
+            performance
+          </p>
+        </div>
 
-      <header className="border-b border-slate-200 bg-white">
+        <button
+          onClick={loadPortfolio}
+          disabled={loading}
+          style={{
+            padding: "10px 18px",
+            border: "none",
+            borderRadius: "8px",
+            background: "#2563eb",
+            color: "#fff",
+            cursor: loading
+              ? "not-allowed"
+              : "pointer",
+            fontWeight: "600",
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
 
-        <div className="mx-auto max-w-7xl px-6 py-6">
+      {/* Error */}
+      {error && (
+        <div
+          style={{
+            background: "#fee2e2",
+            color: "#b91c1c",
+            padding: "14px 16px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            border: "1px solid #fecaca",
+          }}
+        >
+          ❌ {error}
 
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          {error.includes("login") && (
+            <button
+              onClick={() => navigate("/login")}
+              style={{
+                marginLeft: "15px",
+                padding: "6px 12px",
+                border: "none",
+                borderRadius: "6px",
+                background: "#b91c1c",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Login
+            </button>
+          )}
+        </div>
+      )}
 
-            <div>
+      {/* Success */}
+      {success && (
+        <div
+          style={{
+            background: "#dcfce7",
+            color: "#166534",
+            padding: "14px 16px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            border: "1px solid #bbf7d0",
+          }}
+        >
+          ✅ {success}
+        </div>
+      )}
 
-              <div className="flex items-center gap-3">
+      {/* Loading */}
+      {loading ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "70px 20px",
+            color: "#6b7280",
+          }}
+        >
+          <h3>Loading portfolio...</h3>
+          <p>Please wait.</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "20px",
+              marginBottom: "30px",
+            }}
+          >
+            {/* Total Invested */}
+            <div
+              style={{
+                background: "#fff",
+                padding: "22px",
+                borderRadius: "12px",
+                boxShadow:
+                  "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Total Invested
+              </p>
+
+              <h2
+                style={{
+                  marginTop: "10px",
+                  marginBottom: 0,
+                  color: "#111827",
+                }}
+              >
+                {formatCurrency(totalInvested)}
+              </h2>
+            </div>
+
+            {/* Current Value */}
+            <div
+              style={{
+                background: "#fff",
+                padding: "22px",
+                borderRadius: "12px",
+                boxShadow:
+                  "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Current Value
+              </p>
+
+              <h2
+                style={{
+                  marginTop: "10px",
+                  marginBottom: 0,
+                  color: "#111827",
+                }}
+              >
+                {formatCurrency(currentValue)}
+              </h2>
+            </div>
+
+            {/* Profit / Loss */}
+            <div
+              style={{
+                background: "#fff",
+                padding: "22px",
+                borderRadius: "12px",
+                boxShadow:
+                  "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Profit / Loss
+              </p>
+
+              <h2
+                style={{
+                  marginTop: "10px",
+                  marginBottom: 0,
+                  color:
+                    profitLoss >= 0
+                      ? "#16a34a"
+                      : "#dc2626",
+                }}
+              >
+                {profitLoss >= 0 ? "+" : ""}
+                {formatCurrency(profitLoss)}
+              </h2>
+            </div>
+
+            {/* Return */}
+            <div
+              style={{
+                background: "#fff",
+                padding: "22px",
+                borderRadius: "12px",
+                boxShadow:
+                  "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Total Return
+              </p>
+
+              <h2
+                style={{
+                  marginTop: "10px",
+                  marginBottom: 0,
+                  color:
+                    returnPercentage >= 0
+                      ? "#16a34a"
+                      : "#dc2626",
+                }}
+              >
+                {returnPercentage >= 0
+                  ? "+"
+                  : ""}
+                {returnPercentage.toFixed(2)}%
+              </h2>
+            </div>
+          </div>
+
+          {/* Investments Section */}
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "25px",
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.06)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#111827",
+                  }}
+                >
+                  Your Investments
+                </h2>
+
+                <p
+                  style={{
+                    marginTop: "6px",
+                    color: "#6b7280",
+                  }}
+                >
+                  {portfolio.length}{" "}
+                  {portfolio.length === 1
+                    ? "investment"
+                    : "investments"}{" "}
+                  in your portfolio
+                </p>
+              </div>
+            </div>
+
+            {/* Empty Portfolio */}
+            {portfolio.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                  color: "#6b7280",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "45px",
+                    marginBottom: "15px",
+                  }}
+                >
+                  📊
+                </div>
+
+                <h3
+                  style={{
+                    marginBottom: "8px",
+                    color: "#374151",
+                  }}
+                >
+                  No investments yet
+                </h3>
+
+                <p>
+                  Your portfolio is empty.
+                  Start investing to see your
+                  investments here.
+                </p>
 
                 <button
                   onClick={() =>
-                    navigate("/dashboard")
+                    navigate("/investments")
                   }
-                  className="rounded-lg bg-slate-100 px-3 py-2 text-lg transition hover:bg-slate-200"
+                  style={{
+                    marginTop: "15px",
+                    padding: "10px 18px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
                 >
-                  ←
+                  View Investments
                 </button>
-
-                <h1 className="text-3xl font-bold text-slate-900">
-                  💼 My Portfolio
-                </h1>
-
               </div>
-
-              <p className="mt-2 text-slate-500">
-                Track your investments in one place
-              </p>
-
-            </div>
-
-            <button
-              onClick={loadPortfolio}
-              disabled={loading}
-              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              🔄 Refresh
-            </button>
-
-          </div>
-
-        </div>
-
-      </header>
-
-      {/* =================================================
-          MAIN
-      ================================================= */}
-
-      <main className="mx-auto max-w-7xl px-6 py-8">
-
-        {/* ERROR */}
-
-        {error && (
-          <div className="mb-6 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
-
-            <span>
-              ❌ {error}
-            </span>
-
-            <button
-              onClick={() =>
-                setError("")
-              }
-              className="font-bold"
-            >
-              ×
-            </button>
-
-          </div>
-        )}
-
-        {/* SUCCESS */}
-
-        {success && (
-          <div className="mb-6 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-700">
-
-            <span>
-              ✅ {success}
-            </span>
-
-            <button
-              onClick={() =>
-                setSuccess("")
-              }
-              className="font-bold"
-            >
-              ×
-            </button>
-
-          </div>
-        )}
-
-        {/* =================================================
-            SUMMARY CARDS
-        ================================================= */}
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-
-          {/* TOTAL INVESTED */}
-
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-
-            <div className="flex items-start justify-between">
-
-              <div>
-
-                <p className="text-sm font-medium text-slate-500">
-                  Total Invested
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                  ₹{formatMoney(totalInvested)}
-                </h2>
-
-              </div>
-
-              <div className="rounded-xl bg-blue-100 p-3 text-2xl">
-                💰
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* CURRENT VALUE */}
-
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-
-            <div className="flex items-start justify-between">
-
-              <div>
-
-                <p className="text-sm font-medium text-slate-500">
-                  Current Value
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                  ₹{formatMoney(currentValue)}
-                </h2>
-
-              </div>
-
-              <div className="rounded-xl bg-purple-100 p-3 text-2xl">
-                📊
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* PROFIT LOSS */}
-
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-
-            <div className="flex items-start justify-between">
-
-              <div>
-
-                <p className="text-sm font-medium text-slate-500">
-                  Profit / Loss
-                </p>
-
-                <h2
-                  className={`mt-2 text-3xl font-bold ${
-                    totalProfitLoss >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {totalProfitLoss >= 0
-                    ? "+"
-                    : "-"}
-                  ₹
-                  {formatMoney(
-                    Math.abs(
-                      totalProfitLoss
-                    )
-                  )}
-                </h2>
-
-              </div>
-
+            ) : (
+              /* Investment Cards */
               <div
-                className={`rounded-xl p-3 text-2xl ${
-                  totalProfitLoss >= 0
-                    ? "bg-green-100"
-                    : "bg-red-100"
-                }`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(280px, 1fr))",
+                  gap: "20px",
+                }}
               >
-                {totalProfitLoss >= 0
-                  ? "📈"
-                  : "📉"}
-              </div>
+                {portfolio.map((item) => {
+                  const quantity = Number(
+                    item.quantity || 0
+                  );
 
-            </div>
+                  const investedAmount = Number(
+                    item.invested_amount || 0
+                  );
 
-          </div>
+                  const currentPrice = Number(
+                    item.current_price || 0
+                  );
 
-          {/* TOTAL RETURN */}
+                  const currentAmount =
+                    quantity * currentPrice;
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                  const itemProfit =
+                    currentAmount -
+                    investedAmount;
 
-            <div className="flex items-start justify-between">
+                  const itemReturn =
+                    investedAmount > 0
+                      ? (itemProfit /
+                          investedAmount) *
+                        100
+                      : 0;
 
-              <div>
-
-                <p className="text-sm font-medium text-slate-500">
-                  Total Return
-                </p>
-
-                <h2
-                  className={`mt-2 text-3xl font-bold ${
-                    totalReturn >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {totalReturn >= 0
-                    ? "+"
-                    : ""}
-                  {totalReturn.toFixed(2)}%
-                </h2>
-
-              </div>
-
-              <div className="rounded-xl bg-yellow-100 p-3 text-2xl">
-                ⭐
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* =================================================
-            INVESTMENTS TITLE
-        ================================================= */}
-
-        <div className="mt-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-
-          <div>
-
-            <h2 className="text-2xl font-bold text-slate-900">
-              Your Investments
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              {portfolio.length} investment
-              {portfolio.length !== 1
-                ? "s"
-                : ""}{" "}
-              in your portfolio
-            </p>
-
-          </div>
-
-          <button
-            onClick={() =>
-              navigate("/investments")
-            }
-            className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
-          >
-            + Add Investment
-          </button>
-
-        </div>
-
-        {/* =================================================
-            EMPTY PORTFOLIO
-        ================================================= */}
-
-        {portfolio.length === 0 ? (
-
-          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-
-            <div className="text-6xl">
-              📊
-            </div>
-
-            <h3 className="mt-5 text-xl font-bold text-slate-800">
-              No investments yet
-            </h3>
-
-            <p className="mx-auto mt-2 max-w-md text-slate-500">
-              Start investing today and
-              your investments will appear
-              here.
-            </p>
-
-            <button
-              onClick={() =>
-                navigate("/investments")
-              }
-              className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
-            >
-              Explore Investments
-            </button>
-
-          </div>
-
-        ) : (
-
-          /* =================================================
-             INVESTMENT CARDS
-          ================================================= */
-
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-            {portfolio.map((item) => {
-
-              const quantity = Number(
-                item.quantity || 0
-              );
-
-              const investedAmount =
-                Number(
-                  item.invested_amount || 0
-                );
-
-              const currentPrice =
-                Number(
-                  item.current_price || 0
-                );
-
-              const currentInvestmentValue =
-                quantity *
-                currentPrice;
-
-              const profitLoss =
-                currentInvestmentValue -
-                investedAmount;
-
-              const returnPercentage =
-                investedAmount > 0
-                  ? (profitLoss /
-                      investedAmount) *
-                    100
-                  : 0;
-
-              return (
-
-                <div
-                  key={
-                    item.portfolio_id
-                  }
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                >
-
-                  {/* CARD HEADER */}
-
-                  <div className="border-b border-slate-100 p-6">
-
-                    <div className="flex items-start justify-between gap-4">
-
-                      <div className="flex items-center gap-4">
-
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">
-                          📈
-                        </div>
-
+                  return (
+                    <div
+                      key={item.portfolio_id}
+                      style={{
+                        border:
+                          "1px solid #e5e7eb",
+                        borderRadius: "12px",
+                        padding: "20px",
+                      }}
+                    >
+                      {/* Investment Name */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent:
+                            "space-between",
+                          alignItems: "flex-start",
+                          gap: "10px",
+                        }}
+                      >
                         <div>
-
-                          <h3 className="text-xl font-bold text-slate-900">
-                            {item.investment_name ||
-                              "Investment"}
+                          <h3
+                            style={{
+                              margin: 0,
+                              color:
+                                "#111827",
+                            }}
+                          >
+                            {
+                              item.investment_name
+                            }
                           </h3>
 
-                          <p className="mt-1 text-sm text-slate-500">
-                            {item.investment_type ||
-                              "Investment"}
+                          <p
+                            style={{
+                              marginTop:
+                                "5px",
+                              color:
+                                "#6b7280",
+                              fontSize:
+                                "14px",
+                            }}
+                          >
+                            {
+                              item.investment_type
+                            }
                           </p>
-
                         </div>
 
+                        <span
+                          style={{
+                            padding:
+                              "5px 10px",
+                            borderRadius:
+                              "20px",
+                            background:
+                              "#f3f4f6",
+                            fontSize:
+                              "12px",
+                            color:
+                              "#374151",
+                          }}
+                        >
+                          {
+                            item.risk_level
+                          }
+                        </span>
                       </div>
 
-                      <span
-                        className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${getRiskStyle(
-                          item.risk_level
-                        )}`}
+                      {/* Details */}
+                      <div
+                        style={{
+                          marginTop:
+                            "20px",
+                          display: "grid",
+                          gap: "12px",
+                        }}
                       >
-                        Risk:{" "}
-                        {item.risk_level ||
-                          "Unknown"}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                  {/* DETAILS */}
-
-                  <div className="grid grid-cols-2 gap-4 p-6">
-
-                    <div className="rounded-xl bg-slate-50 p-4">
-
-                      <p className="text-xs font-medium text-slate-500">
-                        Quantity
-                      </p>
-
-                      <p className="mt-1 text-lg font-bold text-slate-900">
-                        {quantity}
-                      </p>
-
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-4">
-
-                      <p className="text-xs font-medium text-slate-500">
-                        Invested Amount
-                      </p>
-
-                      <p className="mt-1 text-lg font-bold text-slate-900">
-                        ₹
-                        {formatMoney(
-                          investedAmount
-                        )}
-                      </p>
-
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-4">
-
-                      <p className="text-xs font-medium text-slate-500">
-                        Current Price
-                      </p>
-
-                      <p className="mt-1 text-lg font-bold text-slate-900">
-                        ₹
-                        {formatMoney(
-                          currentPrice
-                        )}
-                      </p>
-
-                    </div>
-
-                    <div className="rounded-xl bg-slate-50 p-4">
-
-                      <p className="text-xs font-medium text-slate-500">
-                        Current Value
-                      </p>
-
-                      <p className="mt-1 text-lg font-bold text-slate-900">
-                        ₹
-                        {formatMoney(
-                          currentInvestmentValue
-                        )}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                  {/* PROFIT / LOSS */}
-
-                  <div className="px-6">
-
-                    <div
-                      className={`rounded-xl p-5 ${
-                        profitLoss >= 0
-                          ? "bg-green-50"
-                          : "bg-red-50"
-                      }`}
-                    >
-
-                      <div className="flex items-center justify-between">
-
-                        <div>
-
-                          <p className="text-sm font-medium text-slate-500">
-                            Profit / Loss
-                          </p>
-
-                          <p
-                            className={`mt-1 text-2xl font-bold ${
-                              profitLoss >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
                           >
-                            {profitLoss >= 0
-                              ? "+"
-                              : "-"}
-                            ₹
-                            {formatMoney(
-                              Math.abs(
-                                profitLoss
-                              )
-                            )}
-                          </p>
+                            Quantity
+                          </span>
 
+                          <strong>
+                            {quantity}
+                          </strong>
                         </div>
 
-                        <div className="text-right">
-
-                          <p className="text-sm font-medium text-slate-500">
-                            Return
-                          </p>
-
-                          <p
-                            className={`mt-1 text-xl font-bold ${
-                              returnPercentage >=
-                              0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
                           >
-                            {returnPercentage >=
+                            Invested
+                          </span>
+
+                          <strong>
+                            {formatCurrency(
+                              investedAmount
+                            )}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            Current Price
+                          </span>
+
+                          <strong>
+                            {formatCurrency(
+                              currentPrice
+                            )}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            Current Value
+                          </span>
+
+                          <strong>
+                            {formatCurrency(
+                              currentAmount
+                            )}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                            paddingTop:
+                              "10px",
+                            borderTop:
+                              "1px solid #e5e7eb",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            Profit / Loss
+                          </span>
+
+                          <strong
+                            style={{
+                              color:
+                                itemProfit >=
+                                0
+                                  ? "#16a34a"
+                                  : "#dc2626",
+                            }}
+                          >
+                            {itemProfit >=
                             0
                               ? "+"
                               : ""}
-                            {returnPercentage.toFixed(
+                            {formatCurrency(
+                              itemProfit
+                            )}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            Return
+                          </span>
+
+                          <strong
+                            style={{
+                              color:
+                                itemReturn >=
+                                0
+                                  ? "#16a34a"
+                                  : "#dc2626",
+                            }}
+                          >
+                            {itemReturn >=
+                            0
+                              ? "+"
+                              : ""}
+                            {itemReturn.toFixed(
                               2
                             )}
                             %
-                          </p>
-
+                          </strong>
                         </div>
 
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            Purchase Date
+                          </span>
+
+                          <strong>
+                            {formatDate(
+                              item.purchase_date
+                            )}
+                          </strong>
+                        </div>
                       </div>
 
-                    </div>
-
-                  </div>
-
-                  {/* FOOTER */}
-
-                  <div className="mt-5 border-t border-slate-100 p-6">
-
-                    <div className="mb-5 grid grid-cols-2 gap-4">
-
-                      <div>
-
-                        <p className="text-xs text-slate-500">
-                          Purchase Date
-                        </p>
-
-                        <p className="mt-1 font-semibold text-slate-700">
-                          {formatDate(
-                            item.purchase_date
-                          )}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs text-slate-500">
-                          Portfolio ID
-                        </p>
-
-                        <p className="mt-1 font-semibold text-slate-700">
-                          #
-                          {
+                      {/* Delete */}
+                      <button
+                        onClick={() =>
+                          handleDelete(
                             item.portfolio_id
-                          }
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs text-slate-500">
-                          Investment ID
-                        </p>
-
-                        <p className="mt-1 font-semibold text-slate-700">
-                          #
-                          {
-                            item.investment_id
-                          }
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs text-slate-500">
-                          Risk Level
-                        </p>
-
-                        <p className="mt-1 font-semibold text-slate-700">
-                          {item.risk_level ||
-                            "Unknown"}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        deleteInvestment(
+                          )
+                        }
+                        disabled={
+                          deletingId ===
                           item.portfolio_id
-                        )
-                      }
-                      disabled={
-                        deletingId ===
+                        }
+                        style={{
+                          width: "100%",
+                          marginTop:
+                            "20px",
+                          padding: "10px",
+                          border: "none",
+                          borderRadius:
+                            "8px",
+                          background:
+                            "#dc2626",
+                          color: "#fff",
+                          cursor:
+                            deletingId ===
+                            item.portfolio_id
+                              ? "not-allowed"
+                              : "pointer",
+                          fontWeight:
+                            "600",
+                          opacity:
+                            deletingId ===
+                            item.portfolio_id
+                              ? 0.7
+                              : 1,
+                        }}
+                      >
+                        {deletingId ===
                         item.portfolio_id
-                      }
-                      className="w-full rounded-xl border border-red-200 bg-red-50 py-3 font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {deletingId ===
-                      item.portfolio_id
-                        ? "⏳ Deleting..."
-                        : "🗑️ Delete Investment"}
-                    </button>
-
-                  </div>
-
-                </div>
-              );
-            })}
-
+                          ? "Deleting..."
+                          : "Delete Investment"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-
-        {/* FOOTER */}
-
-        <div className="mt-10 pb-6 text-center text-sm text-slate-400">
-          © 2026 InvestAI • Smart Investing with AI
-        </div>
-
-      </main>
+        </>
+      )}
     </div>
   );
 };

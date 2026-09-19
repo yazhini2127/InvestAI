@@ -19,7 +19,7 @@ function Wallet() {
 
     const fetchWallet = async () => {
       try {
-        const response = await api.get(`/wallet/${userId}`);
+        const response = await api.get("/wallet");
 
         if (!cancelled && response.data.success) {
           setBalance(Number(response.data.wallet.balance));
@@ -60,9 +60,7 @@ function Wallet() {
       setError("");
       setMessage("");
 
-      const response = await api.post(
-        `/wallet/${userId}/deposit`,
-        {
+      const response = await api.post("/wallet/deposit", {
           amount: value,
         }
       );
@@ -72,9 +70,7 @@ function Wallet() {
         setAmount("");
 
         // Get updated balance
-        const walletResponse = await api.get(
-          `/wallet/${userId}`
-        );
+        const walletResponse = await api.get("/wallet");
 
         if (walletResponse.data.success) {
           setBalance(
@@ -110,9 +106,7 @@ function Wallet() {
       setError("");
       setMessage("");
 
-      const response = await api.post(
-        `/wallet/${userId}/withdraw`,
-        {
+      const response = await api.post("/wallet/withdraw", {
           amount: value,
         }
       );
@@ -122,9 +116,7 @@ function Wallet() {
         setAmount("");
 
         // Get updated balance
-        const walletResponse = await api.get(
-          `/wallet/${userId}`
-        );
+        const walletResponse = await api.get("/wallet");
 
         if (walletResponse.data.success) {
           setBalance(
