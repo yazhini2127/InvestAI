@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // ========================================
-// GET PORTFOLIO BY USER
+// GET LOGGED-IN USER PORTFOLIO
 // ========================================
-router.get("/:userId", (req, res) => {
-    const userId = req.params.userId;
+router.get("/", authMiddleware, (req, res) => {
+    const userId = req.user.id;
 
     const sql = `
         SELECT
@@ -42,7 +43,7 @@ router.get("/:userId", (req, res) => {
             });
         }
 
-        res.json({
+        return res.json({
             success: true,
             portfolio: results,
         });
@@ -53,36 +54,42 @@ router.get("/:userId", (req, res) => {
 // ========================================
 // DELETE PORTFOLIO
 // ========================================
-router.delete("/:id", (req, res) => {
+router.delete("/:id", authMiddleware, (req, res) => {
     const portfolioId = req.params.id;
+    const userId = req.user.id;
 
     const sql = `
         DELETE FROM portfolio
         WHERE portfolio_id = ?
+        AND user_id = ?
     `;
 
-    db.query(sql, [portfolioId], (err, result) => {
-        if (err) {
-            console.error("Portfolio DELETE Error:", err);
+    db.query(
+        sql,
+        [portfolioId, userId],
+        (err, result) => {
+            if (err) {
+                console.error("Portfolio DELETE Error:", err);
 
-            return res.status(500).json({
-                success: false,
-                message: "Failed to delete investment",
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to delete investment",
+                });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Portfolio investment not found",
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: "Investment deleted successfully",
             });
         }
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Portfolio investment not found",
-            });
-        }
-
-        res.json({
-            success: true,
-            message: "Investment deleted successfully",
-        });
-    });
+    );
 });
 
 

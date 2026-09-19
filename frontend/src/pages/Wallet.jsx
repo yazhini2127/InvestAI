@@ -9,7 +9,9 @@ function Wallet() {
   const [error, setError] = useState("");
 
   // Temporary user ID
-  const userId = 2;
+  const storedUser = localStorage.getItem("user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const userId = user?.id;
 
   // Load wallet when page opens
   useEffect(() => {
@@ -43,7 +45,7 @@ function Wallet() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   // Deposit
   const handleDeposit = async () => {

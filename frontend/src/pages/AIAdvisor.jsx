@@ -4,7 +4,9 @@ import api from "../services/api";
 import "./AIAdvisor.css";
 
 function AIAdvisor() {
-    const userId = 2;
+    const storedUser = localStorage.getItem("user");
+    const user = storedUser ? JSON.parse(storedUser) : null;
+    const userId = user?.id;
 
     // =====================================================
     // STATES
@@ -221,7 +223,7 @@ function AIAdvisor() {
         } finally {
             setHistoryLoading(false);
         }
-    }, [language]);
+    }, [language ,  userId]);
 
     // =====================================================
     // INITIAL HISTORY
@@ -275,7 +277,7 @@ function AIAdvisor() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [userId]);
 
     // =====================================================
     // CHANGE LANGUAGE

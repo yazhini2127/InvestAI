@@ -1,11 +1,17 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../config/db");
 
-// ========================================
-// GET ALL INVESTMENTS
-// ========================================
-router.get("/", (req, res) => {
+const db = require("../config/db");
+const authMiddleware = require("../middleware/authMiddleware");
+
+// =====================================================
+// GET ALL INVESTMENTS FOR LOGGED-IN USER
+// =====================================================
+
+router.get("/", authMiddleware, (req, res) => {
+
+    const userId = req.user.id;
+
     const sql = `
         SELECT
             investment_id,
@@ -14,32 +20,100 @@ router.get("/", (req, res) => {
             current_price,
             risk_level
         FROM investments
+        WHERE user_id = ?
         ORDER BY investment_id DESC
     `;
 
-    db.query(sql, (err, results) => {
-        if (err) {
-            console.error("Investments GET Error:", err);
+    db.query(
+        sql,
+        [userId],
+        (err, results) => {
 
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load investments",
+            if (err) {
+                console.error(
+                    "Investments GET Error:",
+                    err
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to load investments",
+                });
+            }
+
+            res.json({
+                success: true,
+                investments: results,
             });
         }
-
-        res.json({
-            success: true,
-            investments: results,
-        });
-    });
+    );
 });
 
 
-// ========================================
-// EDIT INVESTMENT
-// ========================================
-router.put("/:id", (req, res) => {
+// =====================================================
+// GET SINGLE INVESTMENT
+// =====================================================
 
+router.get("/:id", authMiddleware, (req, res) => {
+
+    const userId = req.user.id;
+    const investmentId = req.params.id;
+
+    const sql = `
+        SELECT
+            investment_id,
+            investment_name,
+            investment_type,
+            current_price,
+            risk_level
+        FROM investments
+        WHERE investment_id = ?
+        AND user_id = ?
+    `;
+
+    db.query(
+        sql,
+        [
+            investmentId,
+            userId,
+        ],
+        (err, results) => {
+
+            if (err) {
+                console.error(
+                    "Single Investment GET Error:",
+                    err
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to load investment",
+                });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Investment not found",
+                });
+            }
+
+            res.json({
+                success: true,
+                investment: results[0],
+            });
+        }
+    );
+});
+
+
+// =====================================================
+// EDIT INVESTMENT
+// =====================================================
+
+router.put("/:id", authMiddleware, (req, res) => {
+
+    const userId = req.user.id;
     const investmentId = req.params.id;
 
     const {
@@ -77,6 +151,7 @@ router.put("/:id", (req, res) => {
             current_price = ?,
             risk_level = ?
         WHERE investment_id = ?
+        AND user_id = ?
     `;
 
     db.query(
@@ -87,6 +162,7 @@ router.put("/:id", (req, res) => {
             Number(current_price),
             risk_level,
             investmentId,
+            userId,
         ],
         (err, result) => {
 
@@ -118,19 +194,20 @@ router.put("/:id", (req, res) => {
 });
 
 
-// ========================================
+// =====================================================
 // BUY INVESTMENT
-// ========================================
-router.post("/buy", (req, res) => {
+// =====================================================
+
+router.post("/buy", authMiddleware, (req, res) => {
+
+    const userId = req.user.id;
 
     const {
-        user_id,
         investment_id,
         quantity,
     } = req.body;
 
     if (
-        !user_id ||
         !investment_id ||
         !quantity ||
         Number(quantity) <= 0
@@ -143,9 +220,10 @@ router.post("/buy", (req, res) => {
 
     const buyQuantity = Number(quantity);
 
-    // ========================================
+    // =================================================
     // GET INVESTMENT
-    // ========================================
+    // =================================================
+
     const investmentSQL = `
         SELECT
             investment_id,
@@ -153,15 +231,22 @@ router.post("/buy", (req, res) => {
             current_price
         FROM investments
         WHERE investment_id = ?
+        AND user_id = ?
     `;
 
     db.query(
         investmentSQL,
-        [investment_id],
+        [
+            investment_id,
+            userId,
+        ],
         (err, investmentResults) => {
 
             if (err) {
-                console.error(err);
+                console.error(
+                    "Investment lookup error:",
+                    err
+                );
 
                 return res.status(500).json({
                     success: false,
@@ -176,7 +261,8 @@ router.post("/buy", (req, res) => {
                 });
             }
 
-            const investment = investmentResults[0];
+            const investment =
+                investmentResults[0];
 
             const price =
                 Number(investment.current_price);
@@ -184,9 +270,10 @@ router.post("/buy", (req, res) => {
             const totalAmount =
                 price * buyQuantity;
 
-            // ========================================
-            // GET WALLET
-            // ========================================
+            // =========================================
+            // GET USER WALLET
+            // =========================================
+
             const walletSQL = `
                 SELECT
                     wallet_id,
@@ -197,11 +284,14 @@ router.post("/buy", (req, res) => {
 
             db.query(
                 walletSQL,
-                [user_id],
+                [userId],
                 (err, walletResults) => {
 
                     if (err) {
-                        console.error(err);
+                        console.error(
+                            "Wallet lookup error:",
+                            err
+                        );
 
                         return res.status(500).json({
                             success: false,
@@ -216,14 +306,16 @@ router.post("/buy", (req, res) => {
                         });
                     }
 
-                    const wallet = walletResults[0];
+                    const wallet =
+                        walletResults[0];
 
                     const balance =
                         Number(wallet.balance);
 
-                    // ========================================
+                    // =====================================
                     // CHECK BALANCE
-                    // ========================================
+                    // =====================================
+
                     if (balance < totalAmount) {
                         return res.status(400).json({
                             success: false,
@@ -235,9 +327,10 @@ router.post("/buy", (req, res) => {
                     const newBalance =
                         balance - totalAmount;
 
-                    // ========================================
+                    // =====================================
                     // UPDATE WALLET
-                    // ========================================
+                    // =====================================
+
                     const updateWalletSQL = `
                         UPDATE wallet
                         SET balance = ?
@@ -248,7 +341,7 @@ router.post("/buy", (req, res) => {
                         updateWalletSQL,
                         [
                             newBalance,
-                            user_id,
+                            userId,
                         ],
                         (err) => {
 
@@ -262,9 +355,10 @@ router.post("/buy", (req, res) => {
                                 });
                             }
 
-                            // ========================================
-                            // CHECK EXISTING PORTFOLIO
-                            // ========================================
+                            // =================================
+                            // CHECK PORTFOLIO
+                            // =================================
+
                             const portfolioCheckSQL = `
                                 SELECT
                                     portfolio_id,
@@ -279,7 +373,7 @@ router.post("/buy", (req, res) => {
                             db.query(
                                 portfolioCheckSQL,
                                 [
-                                    user_id,
+                                    userId,
                                     investment_id,
                                 ],
                                 (err, portfolioResults) => {
@@ -294,9 +388,10 @@ router.post("/buy", (req, res) => {
                                         });
                                     }
 
-                                    // ========================================
+                                    // =================================
                                     // EXISTING PORTFOLIO
-                                    // ========================================
+                                    // =================================
+
                                     if (
                                         portfolioResults.length > 0
                                     ) {
@@ -322,6 +417,7 @@ router.post("/buy", (req, res) => {
                                                 quantity = ?,
                                                 invested_amount = ?
                                             WHERE portfolio_id = ?
+                                            AND user_id = ?
                                         `;
 
                                         db.query(
@@ -330,6 +426,7 @@ router.post("/buy", (req, res) => {
                                                 newQuantity,
                                                 newInvestedAmount,
                                                 portfolio.portfolio_id,
+                                                userId,
                                             ],
                                             (err) => {
 
@@ -349,9 +446,10 @@ router.post("/buy", (req, res) => {
 
                                     } else {
 
-                                        // ========================================
+                                        // ===============================
                                         // NEW PORTFOLIO
-                                        // ========================================
+                                        // ===============================
+
                                         const portfolioSQL = `
                                             INSERT INTO portfolio
                                             (
@@ -368,7 +466,7 @@ router.post("/buy", (req, res) => {
                                         db.query(
                                             portfolioSQL,
                                             [
-                                                user_id,
+                                                userId,
                                                 investment_id,
                                                 buyQuantity,
                                                 totalAmount,
@@ -390,9 +488,10 @@ router.post("/buy", (req, res) => {
                                         );
                                     }
 
-                                    // ========================================
+                                    // =================================
                                     // ADD BUY TRANSACTION
-                                    // ========================================
+                                    // =================================
+
                                     function addBuyTransaction() {
 
                                         const transactionSQL = `
@@ -411,7 +510,7 @@ router.post("/buy", (req, res) => {
                                         db.query(
                                             transactionSQL,
                                             [
-                                                user_id,
+                                                userId,
                                                 investment_id,
                                                 totalAmount,
                                                 buyQuantity,
@@ -455,19 +554,20 @@ router.post("/buy", (req, res) => {
 });
 
 
-// ========================================
+// =====================================================
 // SELL INVESTMENT
-// ========================================
-router.post("/sell", (req, res) => {
+// =====================================================
+
+router.post("/sell", authMiddleware, (req, res) => {
+
+    const userId = req.user.id;
 
     const {
-        user_id,
         investment_id,
         quantity,
     } = req.body;
 
     if (
-        !user_id ||
         !investment_id ||
         !quantity ||
         Number(quantity) <= 0
@@ -480,9 +580,10 @@ router.post("/sell", (req, res) => {
 
     const sellQuantity = Number(quantity);
 
-    // ========================================
+    // =================================================
     // GET INVESTMENT
-    // ========================================
+    // =================================================
+
     const investmentSQL = `
         SELECT
             investment_id,
@@ -490,11 +591,15 @@ router.post("/sell", (req, res) => {
             current_price
         FROM investments
         WHERE investment_id = ?
+        AND user_id = ?
     `;
 
     db.query(
         investmentSQL,
-        [investment_id],
+        [
+            investment_id,
+            userId,
+        ],
         (err, investmentResults) => {
 
             if (err) {
@@ -522,9 +627,10 @@ router.post("/sell", (req, res) => {
             const sellAmount =
                 price * sellQuantity;
 
-            // ========================================
-            // GET PORTFOLIO
-            // ========================================
+            // =========================================
+            // GET USER PORTFOLIO
+            // =========================================
+
             const portfolioSQL = `
                 SELECT
                     portfolio_id,
@@ -539,7 +645,7 @@ router.post("/sell", (req, res) => {
             db.query(
                 portfolioSQL,
                 [
-                    user_id,
+                    userId,
                     investment_id,
                 ],
                 (err, portfolioResults) => {
@@ -568,9 +674,10 @@ router.post("/sell", (req, res) => {
                     const ownedQuantity =
                         Number(portfolio.quantity);
 
-                    // ========================================
+                    // =================================
                     // CHECK SHARES
-                    // ========================================
+                    // =================================
+
                     if (
                         sellQuantity >
                         ownedQuantity
@@ -582,17 +689,14 @@ router.post("/sell", (req, res) => {
                         });
                     }
 
-                    // ========================================
+                    // =================================
                     // CALCULATE REMAINING
-                    // ========================================
+                    // =================================
+
                     const remainingQuantity =
                         ownedQuantity -
                         sellQuantity;
 
-                    /*
-                     * Reduce invested amount
-                     * proportionally based on average cost.
-                     */
                     const averageCost =
                         Number(
                             portfolio.invested_amount
@@ -612,9 +716,10 @@ router.post("/sell", (req, res) => {
                             reducedInvestment
                         );
 
-                    // ========================================
-                    // UPDATE WALLET
-                    // ========================================
+                    // =================================
+                    // GET WALLET
+                    // =================================
+
                     const walletSQL = `
                         SELECT balance
                         FROM wallet
@@ -623,7 +728,7 @@ router.post("/sell", (req, res) => {
 
                     db.query(
                         walletSQL,
-                        [user_id],
+                        [userId],
                         (err, walletResults) => {
 
                             if (err) {
@@ -655,9 +760,10 @@ router.post("/sell", (req, res) => {
                                 currentBalance +
                                 sellAmount;
 
-                            // ========================================
+                            // =================================
                             // UPDATE WALLET
-                            // ========================================
+                            // =================================
+
                             const updateWalletSQL = `
                                 UPDATE wallet
                                 SET balance = ?
@@ -668,7 +774,7 @@ router.post("/sell", (req, res) => {
                                 updateWalletSQL,
                                 [
                                     newBalance,
-                                    user_id,
+                                    userId,
                                 ],
                                 (err) => {
 
@@ -682,9 +788,10 @@ router.post("/sell", (req, res) => {
                                         });
                                     }
 
-                                    // ========================================
-                                    // UPDATE / DELETE PORTFOLIO
-                                    // ========================================
+                                    // =================================
+                                    // DELETE PORTFOLIO
+                                    // =================================
+
                                     if (
                                         remainingQuantity === 0
                                     ) {
@@ -692,12 +799,14 @@ router.post("/sell", (req, res) => {
                                         const deletePortfolioSQL = `
                                             DELETE FROM portfolio
                                             WHERE portfolio_id = ?
+                                            AND user_id = ?
                                         `;
 
                                         db.query(
                                             deletePortfolioSQL,
                                             [
                                                 portfolio.portfolio_id,
+                                                userId,
                                             ],
                                             (err) => {
 
@@ -717,12 +826,17 @@ router.post("/sell", (req, res) => {
 
                                     } else {
 
+                                        // ===============================
+                                        // UPDATE PORTFOLIO
+                                        // ===============================
+
                                         const updatePortfolioSQL = `
                                             UPDATE portfolio
                                             SET
                                                 quantity = ?,
                                                 invested_amount = ?
                                             WHERE portfolio_id = ?
+                                            AND user_id = ?
                                         `;
 
                                         db.query(
@@ -731,6 +845,7 @@ router.post("/sell", (req, res) => {
                                                 remainingQuantity,
                                                 remainingInvestedAmount,
                                                 portfolio.portfolio_id,
+                                                userId,
                                             ],
                                             (err) => {
 
@@ -749,9 +864,10 @@ router.post("/sell", (req, res) => {
                                         );
                                     }
 
-                                    // ========================================
+                                    // =================================
                                     // ADD SELL TRANSACTION
-                                    // ========================================
+                                    // =================================
+
                                     function addSellTransaction() {
 
                                         const transactionSQL = `
@@ -770,7 +886,7 @@ router.post("/sell", (req, res) => {
                                         db.query(
                                             transactionSQL,
                                             [
-                                                user_id,
+                                                userId,
                                                 investment_id,
                                                 sellAmount,
                                                 sellQuantity,

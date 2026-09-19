@@ -71,18 +71,70 @@ exports.register = async (req, res) => {
                             });
                         }
 
-                        res.status(201).json({
-                            success: true,
-                            message: "Registration Successful",
-                            user_id: result.insertId
-                        });
+                        const userId = result.insertId;
+
+                        // Create separate wallet for new user
+                        db.query(
+                            `
+                            INSERT INTO wallet
+                            (user_id, balance)
+                            VALUES (?, ?)
+                            `,
+                            [userId, 0],
+                            (walletErr) => {
+
+                                if (walletErr) {
+                                    console.error(
+                                        "Wallet Creation Error:",
+                                        walletErr.message
+                                    );
+                                }
+
+                                // Create separate settings for new user
+                                db.query(
+                                    `
+                                    INSERT INTO settings
+                                    (
+                                        user_id,
+                                        notifications,
+                                        dark_mode,
+                                        email_alerts,
+                                        risk_level
+                                    )
+                                    VALUES (?, ?, ?, ?, ?)
+                                    `,
+                                    [
+                                        userId,
+                                        1,
+                                        0,
+                                        1,
+                                        risk_level || "Medium"
+                                    ],
+                                    (settingsErr) => {
+
+                                        if (settingsErr) {
+                                            console.error(
+                                                "Settings Creation Error:",
+                                                settingsErr.message
+                                            );
+                                        }
+
+                                        return res.status(201).json({
+                                            success: true,
+                                            message: "Registration Successful",
+                                            user_id: userId
+                                        });
+                                    }
+                                );
+                            }
+                        );
                     }
                 );
             }
         );
 
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message
         });
@@ -140,7 +192,9 @@ exports.login = (req, res) => {
                 });
             }
 
-            // JWT Token
+            // ==========================
+            // Create JWT Token
+            // ==========================
             const token = jwt.sign(
                 {
                     id: user.user_id,
@@ -153,17 +207,20 @@ exports.login = (req, res) => {
             );
 
             // Login Success
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
                 message: "Login Successful",
                 token,
 
                 user: {
                     id: user.user_id,
+                    user_id: user.user_id,
                     name: user.full_name,
+                    full_name: user.full_name,
                     email: user.email,
                     phone: user.phone,
-                    riskLevel: user.risk_level
+                    riskLevel: user.risk_level,
+                    risk_level: user.risk_level
                 }
             });
         }

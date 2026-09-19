@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 
 function Settings() {
-    const userId = 2;
+    const storedUser = localStorage.getItem("user");
+const user = storedUser ? JSON.parse(storedUser) : null;
+const userId = user?.id;
 
     const [settings, setSettings] = useState({
         notifications: true,
@@ -76,7 +78,7 @@ function Settings() {
         };
 
         loadSettings();
-    }, []);
+    }, [userId]);
 
     // =====================================================
     // HANDLE CHANGE

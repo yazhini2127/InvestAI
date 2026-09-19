@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../services/api";
 
 function Investments() {
@@ -16,39 +16,83 @@ function Investments() {
     const [quantity, setQuantity] = useState(1);
     const [trading, setTrading] = useState(false);
 
-    const userId = 2;
+    // ========================================
+    // LOGGED-IN USER
+    // ========================================
+
+    const getLoggedUser = () => {
+        try {
+            const storedUser = localStorage.getItem("user");
+
+            if (!storedUser) {
+                return null;
+            }
+
+            return JSON.parse(storedUser);
+        } catch (error) {
+            console.error("User Session Error:", error);
+            return null;
+        }
+    };
+
+    const user = getLoggedUser();
+    const userId = user?.id ?? user?.user_id;
 
     // ========================================
     // LOAD INVESTMENTS
     // ========================================
-    const loadInvestments = async () => {
+
+    const loadInvestments = useCallback(async () => {
         try {
             const response = await api.get("/investments");
 
+            console.log(
+                "Investment API Response:",
+                response.data
+            );
+
             if (response.data.success) {
                 setInvestments(
-                    response.data.investments || []
+                    Array.isArray(response.data.investments)
+                        ? response.data.investments
+                        : []
                 );
             } else {
-                setError("Failed to load investments");
+                setInvestments([]);
+                setError(
+                    response.data.message ||
+                    "Failed to load investments"
+                );
             }
         } catch (err) {
             console.error("Investment Error:", err);
 
-            setError(
-                err.response?.data?.message ||
-                "Failed to load investments"
-            );
+            if (err.response?.status === 401) {
+                setError(
+                    "Your session has expired. Please login again."
+                );
+            } else {
+                setError(
+                    err.response?.data?.message ||
+                    "Failed to load investments"
+                );
+            }
+
+            setInvestments([]);
         }
-    };
+    }, []);
 
     // ========================================
     // LOAD WALLET
     // ========================================
-    const loadWallet = async () => {
+
+    const loadWallet = useCallback(async () => {
         try {
-            const response = await api.get(
-                `/wallet/${userId}`
+            const response = await api.get("/wallet");
+
+            console.log(
+                "Wallet API Response:",
+                response.data
             );
 
             if (response.data.success) {
@@ -57,36 +101,114 @@ function Investments() {
                         response.data.wallet?.balance || 0
                     )
                 );
+            } else {
+                setWalletBalance(0);
             }
         } catch (err) {
             console.error("Wallet Error:", err);
+            setWalletBalance(0);
         }
-    };
+    }, []);
 
     // ========================================
     // LOAD PORTFOLIO
     // ========================================
-    const loadPortfolio = async () => {
+
+    const loadPortfolio = useCallback(async () => {
         try {
-            const response = await api.get(
-                `/portfolio/${userId}`
+            const response = await api.get("/portfolio");
+
+            console.log(
+                "Portfolio API Response:",
+                response.data
             );
 
             if (response.data.success) {
                 setPortfolio(
-                    response.data.portfolio || []
+                    Array.isArray(response.data.portfolio)
+                        ? response.data.portfolio
+                        : []
                 );
+            } else {
+                setPortfolio([]);
             }
         } catch (err) {
             console.error("Portfolio Error:", err);
+            setPortfolio([]);
         }
-    };
+    }, []);
 
     // ========================================
     // INITIAL LOAD
     // ========================================
+
     useEffect(() => {
+        let mounted = true;
+
         const loadPage = async () => {
+            const token = localStorage.getItem("token");
+
+            if (!token || !userId) {
+                if (mounted) {
+                    setError(
+                        "User session not found. Please login again."
+                    );
+
+                    setLoading(false);
+                }
+
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError("");
+
+                await Promise.all([
+                    loadInvestments(),
+                    loadWallet(),
+                    loadPortfolio(),
+                ]);
+            } catch (err) {
+                console.error(
+                    "Investments Page Load Error:",
+                    err
+                );
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadPage();
+
+        return () => {
+            mounted = false;
+        };
+    }, [
+        userId,
+        loadInvestments,
+        loadWallet,
+        loadPortfolio,
+    ]);
+
+    // ========================================
+    // REFRESH
+    // ========================================
+
+    const refreshAll = async () => {
+        const token = localStorage.getItem("token");
+
+        if (!token || !userId) {
+            setError(
+                "User session not found. Please login again."
+            );
+
+            return;
+        }
+
+        try {
             setLoading(true);
             setError("");
 
@@ -95,32 +217,17 @@ function Investments() {
                 loadWallet(),
                 loadPortfolio(),
             ]);
-
+        } catch (err) {
+            console.error("Refresh Error:", err);
+        } finally {
             setLoading(false);
-        };
-
-        loadPage();
-    }, []);
-
-    // ========================================
-    // REFRESH
-    // ========================================
-    const refreshAll = async () => {
-        setLoading(true);
-        setError("");
-
-        await Promise.all([
-            loadInvestments(),
-            loadWallet(),
-            loadPortfolio(),
-        ]);
-
-        setLoading(false);
+        }
     };
 
     // ========================================
     // GET OWNED QUANTITY
     // ========================================
+
     const getOwnedQuantity = (investmentId) => {
         const item = portfolio.find(
             (p) =>
@@ -134,6 +241,7 @@ function Investments() {
     // ========================================
     // OPEN BUY
     // ========================================
+
     const openBuy = (investment) => {
         setQuantity(1);
 
@@ -146,6 +254,7 @@ function Investments() {
     // ========================================
     // OPEN SELL
     // ========================================
+
     const openSell = (investment) => {
         const owned = getOwnedQuantity(
             investment.investment_id
@@ -155,6 +264,7 @@ function Investments() {
             alert(
                 "❌ You don't own any shares of this investment."
             );
+
             return;
         }
 
@@ -170,6 +280,7 @@ function Investments() {
     // ========================================
     // CLOSE TRADE MODAL
     // ========================================
+
     const closeTradeModal = () => {
         if (trading) return;
 
@@ -180,6 +291,7 @@ function Investments() {
     // ========================================
     // INCREASE QUANTITY
     // ========================================
+
     const increaseQuantity = () => {
         if (!tradeModal) return;
 
@@ -196,6 +308,7 @@ function Investments() {
     // ========================================
     // DECREASE QUANTITY
     // ========================================
+
     const decreaseQuantity = () => {
         if (quantity <= 1) return;
 
@@ -205,6 +318,7 @@ function Investments() {
     // ========================================
     // QUANTITY CHANGE
     // ========================================
+
     const handleQuantityChange = (e) => {
         let value = Number(e.target.value);
 
@@ -231,17 +345,35 @@ function Investments() {
     // ========================================
     // BUY / SELL
     // ========================================
+
     const handleTrade = async () => {
         if (!tradeModal) return;
 
-        const investment =
-            tradeModal.investment;
+        const token = localStorage.getItem("token");
 
-        const price =
-            Number(investment.current_price);
+        if (!token || !userId) {
+            alert(
+                "❌ User session not found. Please login again."
+            );
 
-        const totalAmount =
-            price * quantity;
+            return;
+        }
+
+        const investment = tradeModal.investment;
+
+        const price = Number(
+            investment.current_price
+        );
+
+        const totalAmount = price * quantity;
+
+        if (
+            !Number.isFinite(price) ||
+            price <= 0
+        ) {
+            alert("❌ Invalid investment price.");
+            return;
+        }
 
         // BUY BALANCE CHECK
         if (
@@ -250,8 +382,12 @@ function Investments() {
         ) {
             alert(
                 `❌ Insufficient wallet balance.\n\n` +
-                `Required: ₹${totalAmount.toLocaleString("en-IN")}\n` +
-                `Available: ₹${walletBalance.toLocaleString("en-IN")}`
+                `Required: ₹${totalAmount.toLocaleString(
+                    "en-IN"
+                )}\n` +
+                `Available: ₹${walletBalance.toLocaleString(
+                    "en-IN"
+                )}`
             );
 
             return;
@@ -275,25 +411,39 @@ function Investments() {
             setTrading(true);
 
             const response = await api.post(
-                `/investments/${action}`,
+                `/buy-sell/${action}`,
                 {
-                    user_id: userId,
                     investment_id:
                         investment.investment_id,
-                    quantity,
+                    quantity: Number(quantity),
                 }
             );
 
+            console.log(
+                "Trade Response:",
+                response.data
+            );
+
             if (response.data.success) {
+                const tradeData =
+                    response.data.data || {};
+
                 alert(
                     `✅ ${tradeModal.type} completed successfully!\n\n` +
-                    `Investment: ${response.data.investment}\n` +
-                    `Quantity: ${response.data.quantity}\n` +
+                    `Investment: ${
+                        tradeData.investment ||
+                        investment.investment_name
+                    }\n` +
+                    `Quantity: ${
+                        tradeData.quantity ||
+                        quantity
+                    }\n` +
                     `Amount: ₹${Number(
-                        response.data.amount
+                        tradeData.amount ||
+                        totalAmount
                     ).toLocaleString("en-IN")}\n` +
                     `Wallet Balance: ₹${Number(
-                        response.data.balance
+                        tradeData.wallet_balance ?? 0
                     ).toLocaleString("en-IN")}`
                 );
 
@@ -317,10 +467,18 @@ function Investments() {
                 err
             );
 
-            alert(
-                err.response?.data?.message ||
-                `Failed to ${action} investment`
-            );
+            if (
+                err.response?.status === 401
+            ) {
+                alert(
+                    "❌ Your session has expired. Please login again."
+                );
+            } else {
+                alert(
+                    err.response?.data?.message ||
+                    `Failed to ${action} investment`
+                );
+            }
         } finally {
             setTrading(false);
         }
@@ -329,6 +487,7 @@ function Investments() {
     // ========================================
     // OPEN EDIT
     // ========================================
+
     const handleEdit = (investment) => {
         setEditingInvestment({
             investment_id:
@@ -351,8 +510,12 @@ function Investments() {
     // ========================================
     // EDIT CHANGE
     // ========================================
+
     const handleEditChange = (e) => {
-        const { name, value } = e.target;
+        const {
+            name,
+            value,
+        } = e.target;
 
         setEditingInvestment((prev) => ({
             ...prev,
@@ -363,8 +526,19 @@ function Investments() {
     // ========================================
     // SAVE EDIT
     // ========================================
+
     const handleSave = async () => {
         if (!editingInvestment) return;
+
+        const token = localStorage.getItem("token");
+
+        if (!token || !userId) {
+            alert(
+                "❌ User session not found. Please login again."
+            );
+
+            return;
+        }
 
         if (
             !editingInvestment.investment_name ||
@@ -384,30 +558,32 @@ function Investments() {
             alert(
                 "Price must be greater than 0"
             );
+
             return;
         }
 
         try {
             setSaving(true);
 
-            const response = await api.put(
-                `/investments/${editingInvestment.investment_id}`,
-                {
-                    investment_name:
-                        editingInvestment.investment_name,
+            const response =
+                await api.put(
+                    `/investments/${editingInvestment.investment_id}`,
+                    {
+                        investment_name:
+                            editingInvestment.investment_name,
 
-                    investment_type:
-                        editingInvestment.investment_type,
+                        investment_type:
+                            editingInvestment.investment_type,
 
-                    current_price:
-                        Number(
-                            editingInvestment.current_price
-                        ),
+                        current_price:
+                            Number(
+                                editingInvestment.current_price
+                            ),
 
-                    risk_level:
-                        editingInvestment.risk_level,
-                }
-            );
+                        risk_level:
+                            editingInvestment.risk_level,
+                    }
+                );
 
             if (response.data.success) {
                 alert(
@@ -429,10 +605,18 @@ function Investments() {
                 err
             );
 
-            alert(
-                err.response?.data?.message ||
-                "Failed to update investment"
-            );
+            if (
+                err.response?.status === 401
+            ) {
+                alert(
+                    "❌ Your session has expired. Please login again."
+                );
+            } else {
+                alert(
+                    err.response?.data?.message ||
+                    "Failed to update investment"
+                );
+            }
         } finally {
             setSaving(false);
         }
@@ -441,6 +625,7 @@ function Investments() {
     // ========================================
     // LOADING SCREEN
     // ========================================
+
     if (loading) {
         return (
             <div style={styles.loadingPage}>
@@ -462,10 +647,12 @@ function Investments() {
     // ========================================
     // MAIN UI
     // ========================================
+
     return (
         <div style={styles.page}>
 
             {/* HEADER */}
+
             <div style={styles.header}>
 
                 <div>
@@ -474,8 +661,8 @@ function Investments() {
                     </h1>
 
                     <p style={styles.subtitle}>
-                        Explore and manage available
-                        investments
+                        Explore and manage
+                        available investments
                     </p>
                 </div>
 
@@ -490,6 +677,7 @@ function Investments() {
             </div>
 
             {/* WALLET CARD */}
+
             <div style={styles.walletCard}>
 
                 <div>
@@ -512,6 +700,7 @@ function Investments() {
             </div>
 
             {/* ERROR */}
+
             {error && (
                 <div style={styles.error}>
                     ❌ {error}
@@ -519,6 +708,7 @@ function Investments() {
             )}
 
             {/* EMPTY */}
+
             {!error &&
                 investments.length === 0 && (
                     <div style={styles.empty}>
@@ -540,6 +730,7 @@ function Investments() {
                 )}
 
             {/* INVESTMENT CARDS */}
+
             {!error &&
                 investments.length > 0 && (
                     <div style={styles.grid}>
@@ -560,7 +751,6 @@ function Investments() {
                                         style={styles.card}
                                     >
 
-                                        {/* CARD HEADER */}
                                         <div
                                             style={
                                                 styles.cardHeader
@@ -568,6 +758,7 @@ function Investments() {
                                         >
 
                                             <div>
+
                                                 <h2
                                                     style={
                                                         styles.name
@@ -587,6 +778,7 @@ function Investments() {
                                                         investment.investment_type
                                                     }
                                                 </p>
+
                                             </div>
 
                                             <span
@@ -602,7 +794,6 @@ function Investments() {
 
                                         </div>
 
-                                        {/* PRICE */}
                                         <div
                                             style={
                                                 styles.priceBox
@@ -632,7 +823,6 @@ function Investments() {
 
                                         </div>
 
-                                        {/* OWNED */}
                                         {owned > 0 && (
                                             <div
                                                 style={
@@ -647,7 +837,6 @@ function Investments() {
                                             </div>
                                         )}
 
-                                        {/* BUTTONS */}
                                         <div
                                             style={
                                                 styles.buttonRow
@@ -710,9 +899,8 @@ function Investments() {
                     </div>
                 )}
 
-            {/* ========================================
-                BUY / SELL MODAL
-            ======================================== */}
+            {/* BUY / SELL MODAL */}
+
             {tradeModal && (
                 <div
                     style={styles.overlay}
@@ -727,9 +915,7 @@ function Investments() {
                     >
 
                         <div
-                            style={
-                                styles.modalHeader
-                            }
+                            style={styles.modalHeader}
                         >
 
                             <div>
@@ -778,12 +964,12 @@ function Investments() {
 
                         </div>
 
-                        {/* PRICE */}
                         <div
                             style={
                                 styles.tradePrice
                             }
                         >
+
                             <span>
                                 Current Price
                             </span>
@@ -798,9 +984,9 @@ function Investments() {
                                     "en-IN"
                                 )}
                             </strong>
+
                         </div>
 
-                        {/* SELL AVAILABLE */}
                         {tradeModal.type ===
                             "SELL" && (
                             <div
@@ -817,7 +1003,6 @@ function Investments() {
                             </div>
                         )}
 
-                        {/* QUANTITY */}
                         <label
                             style={
                                 styles.quantityLabel
@@ -882,7 +1067,6 @@ function Investments() {
 
                         </div>
 
-                        {/* TOTAL */}
                         <div
                             style={
                                 styles.totalBox
@@ -912,7 +1096,6 @@ function Investments() {
 
                         </div>
 
-                        {/* WALLET */}
                         {tradeModal.type ===
                             "BUY" && (
                             <div
@@ -920,6 +1103,7 @@ function Investments() {
                                     styles.balanceRow
                                 }
                             >
+
                                 <span>
                                     Wallet Balance
                                 </span>
@@ -930,10 +1114,10 @@ function Investments() {
                                         "en-IN"
                                     )}
                                 </strong>
+
                             </div>
                         )}
 
-                        {/* BUTTONS */}
                         <div
                             style={
                                 styles.modalButtons
@@ -947,7 +1131,9 @@ function Investments() {
                                 onClick={
                                     closeTradeModal
                                 }
-                                disabled={trading}
+                                disabled={
+                                    trading
+                                }
                             >
                                 Cancel
                             </button>
@@ -962,7 +1148,9 @@ function Investments() {
                                 onClick={
                                     handleTrade
                                 }
-                                disabled={trading}
+                                disabled={
+                                    trading
+                                }
                             >
                                 {trading
                                     ? "Processing..."
@@ -979,29 +1167,18 @@ function Investments() {
                 </div>
             )}
 
-            {/* ========================================
-                EDIT MODAL
-            ======================================== */}
+            {/* EDIT MODAL */}
+
             {editingInvestment && (
                 <div style={styles.overlay}>
 
-                    <div
-                        style={
-                            styles.editModal
-                        }
-                    >
+                    <div style={styles.editModal}>
 
-                        <h2
-                            style={
-                                styles.modalTitle
-                            }
-                        >
+                        <h2 style={styles.modalTitle}>
                             ✏️ Edit Investment
                         </h2>
 
-                        <label
-                            style={styles.label}
-                        >
+                        <label style={styles.label}>
                             Investment Name
                         </label>
 
@@ -1017,9 +1194,7 @@ function Investments() {
                             style={styles.input}
                         />
 
-                        <label
-                            style={styles.label}
-                        >
+                        <label style={styles.label}>
                             Investment Type
                         </label>
 
@@ -1054,9 +1229,7 @@ function Investments() {
                             </option>
                         </select>
 
-                        <label
-                            style={styles.label}
-                        >
+                        <label style={styles.label}>
                             Current Price
                         </label>
 
@@ -1072,9 +1245,7 @@ function Investments() {
                             style={styles.input}
                         />
 
-                        <label
-                            style={styles.label}
-                        >
+                        <label style={styles.label}>
                             Risk Level
                         </label>
 
@@ -1125,9 +1296,7 @@ function Investments() {
                                 style={
                                     styles.saveButton
                                 }
-                                onClick={
-                                    handleSave
-                                }
+                                onClick={handleSave}
                                 disabled={saving}
                             >
                                 💾{" "}
@@ -1152,7 +1321,6 @@ function Investments() {
 // ========================================
 
 const styles = {
-
     page: {
         minHeight: "100vh",
         padding: "40px",
@@ -1360,14 +1528,11 @@ const styles = {
         fontSize: "55px",
     },
 
-    // ========================================
-    // OVERLAY
-    // ========================================
-
     overlay: {
         position: "fixed",
         inset: 0,
-        background: "rgba(15,23,42,0.6)",
+        background:
+            "rgba(15,23,42,0.6)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -1375,10 +1540,6 @@ const styles = {
         padding: "20px",
         boxSizing: "border-box",
     },
-
-    // ========================================
-    // TRADE MODAL
-    // ========================================
 
     tradeModal: {
         width: "440px",
@@ -1465,7 +1626,8 @@ const styles = {
         boxSizing: "border-box",
         textAlign: "center",
         padding: "12px",
-        border: "1px solid #d1d5db",
+        border:
+            "1px solid #d1d5db",
         borderRadius: "8px",
         fontSize: "17px",
         fontWeight: "bold",
@@ -1528,10 +1690,6 @@ const styles = {
         fontWeight: "bold",
     },
 
-    // ========================================
-    // EDIT MODAL
-    // ========================================
-
     editModal: {
         width: "450px",
         maxWidth: "100%",
@@ -1556,7 +1714,8 @@ const styles = {
         width: "100%",
         boxSizing: "border-box",
         padding: "11px",
-        border: "1px solid #d1d5db",
+        border:
+            "1px solid #d1d5db",
         borderRadius: "8px",
         fontSize: "15px",
     },

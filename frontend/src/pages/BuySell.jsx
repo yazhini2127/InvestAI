@@ -3,7 +3,9 @@ import api from "../services/api";
 import "./BuySell.css";
 
 function BuySell() {
-    const userId = 2;
+   const storedUser = localStorage.getItem("user");
+const user = storedUser ? JSON.parse(storedUser) : null;
+const userId = user?.id;
 
     const [investments, setInvestments] = useState([]);
     const [selectedInvestment, setSelectedInvestment] = useState("");
@@ -119,7 +121,7 @@ function BuySell() {
             console.error("Wallet Error:", err);
             setWalletBalance(0);
         }
-    }, []);
+    }, [userId]);
 
     // =====================================================
     // LOAD PORTFOLIO QUANTITY
@@ -190,7 +192,7 @@ function BuySell() {
                 setPortfolioQuantity(0);
             }
         },
-        []
+        [userId]
     );
 
     // =====================================================

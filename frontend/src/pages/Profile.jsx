@@ -1,20 +1,38 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../services/api";
 import "./Profile.css";
 
 function Profile() {
-    const userId = 2;
+    const storedUser = localStorage.getItem("user");
+    const user = storedUser ? JSON.parse(storedUser) : null;
+    const userId = user?.id ?? user?.user_id;
+
+    // =====================================================
+    // DEFAULT PROFILE
+    // =====================================================
 
     const defaultProfile = {
-        id: 2,
-        username: "yazhini.s",
-        email: "syazhini900@gmail.com",
-        phone: "9080404260",
-        riskLevel: "Medium",
-        joinedDate: "08/09/2026",
+        id: userId ?? "",
+        username:
+            user?.username ??
+            user?.full_name ??
+            user?.name ??
+            "",
+        email: user?.email ?? "",
+        phone: user?.phone ?? "",
+        riskLevel:
+            user?.riskLevel ??
+            user?.risk_level ??
+            "Medium",
+        joinedDate:
+            user?.joinedDate ??
+            user?.joined_date ??
+            user?.created_at ??
+            "",
     };
 
-    const [profile, setProfile] = useState(defaultProfile);
+    const [profile, setProfile] =
+        useState(defaultProfile);
 
     const [formData, setFormData] = useState({
         username: defaultProfile.username,
@@ -53,39 +71,63 @@ function Profile() {
     // CONVERT DATABASE USER
     // =====================================================
 
-    const convertUser = (data) => {
-        return {
-            id:
-                data.user_id ??
-                data.id ??
-                userId,
+    const convertUser = useCallback(
+        (data) => {
+            return {
+                id:
+                    data.user_id ??
+                    data.id ??
+                    userId ??
+                    "",
 
-            username:
-                data.full_name ??
-                data.username ??
-                data.name ??
-                defaultProfile.username,
+                username:
+                    data.full_name ??
+                    data.username ??
+                    data.name ??
+                    user?.username ??
+                    user?.full_name ??
+                    user?.name ??
+                    "",
 
-            email:
-                data.email ??
-                defaultProfile.email,
+                email:
+                    data.email ??
+                    user?.email ??
+                    "",
 
-            phone:
-                data.phone ??
-                defaultProfile.phone,
+                phone:
+                    data.phone ??
+                    user?.phone ??
+                    "",
 
-            riskLevel:
-                data.risk_level ??
-                data.riskLevel ??
-                defaultProfile.riskLevel,
+                riskLevel:
+                    data.risk_level ??
+                    data.riskLevel ??
+                    user?.risk_level ??
+                    user?.riskLevel ??
+                    "Medium",
 
-            joinedDate:
-                data.created_at ??
-                data.joined_date ??
-                data.joinedDate ??
-                defaultProfile.joinedDate,
-        };
-    };
+                joinedDate:
+                    data.created_at ??
+                    data.joined_date ??
+                    data.joinedDate ??
+                    user?.created_at ??
+                    user?.joinedDate ??
+                    "",
+            };
+        },
+        [
+            userId,
+            user?.username,
+            user?.full_name,
+            user?.name,
+            user?.email,
+            user?.phone,
+            user?.risk_level,
+            user?.riskLevel,
+            user?.created_at,
+            user?.joinedDate,
+        ]
+    );
 
     // =====================================================
     // LOAD PROFILE
@@ -95,6 +137,16 @@ function Profile() {
         let mounted = true;
 
         const loadProfile = async () => {
+            if (!userId) {
+                if (mounted) {
+                    setError(
+                        "User session not found. Please login again."
+                    );
+                    setLoading(false);
+                }
+                return;
+            }
+
             try {
                 setLoading(true);
                 setError("");
@@ -110,7 +162,10 @@ function Profile() {
                     response.data?.data ??
                     response.data;
 
-                if (data && typeof data === "object") {
+                if (
+                    data &&
+                    typeof data === "object"
+                ) {
                     const updatedProfile =
                         convertUser(data);
 
@@ -135,18 +190,18 @@ function Profile() {
 
                 if (!mounted) return;
 
-                /*
-                 * Backend route இல்லையென்றால்
-                 * default profile மட்டும் காட்டும்.
-                 *
-                 * இது frontend crash ஆகாமல்
-                 * இருக்கிறது.
-                 */
-
                 if (
+                    err?.response?.status === 401
+                ) {
+                    setError(
+                        "Your session has expired. Please login again."
+                    );
+                } else if (
                     err?.response?.status === 404
                 ) {
-                    setError("");
+                    setError(
+                        "Profile not found."
+                    );
                 } else {
                     setError(
                         "Unable to load profile from server."
@@ -164,13 +219,20 @@ function Profile() {
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [userId, convertUser]);
 
     // =====================================================
     // REFRESH
     // =====================================================
 
     const handleRefresh = async () => {
+        if (!userId) {
+            setError(
+                "User session not found. Please login again."
+            );
+            return;
+        }
+
         try {
             setLoading(true);
             setError("");
@@ -184,7 +246,10 @@ function Profile() {
                 response.data?.data ??
                 response.data;
 
-            if (data && typeof data === "object") {
+            if (
+                data &&
+                typeof data === "object"
+            ) {
                 const updatedProfile =
                     convertUser(data);
 
@@ -210,10 +275,16 @@ function Profile() {
             );
 
             if (
+                err?.response?.status === 401
+            ) {
+                setError(
+                    "Your session has expired. Please login again."
+                );
+            } else if (
                 err?.response?.status === 404
             ) {
                 setError(
-                    "Profile API route is not available."
+                    "Profile not found."
                 );
             } else {
                 setError(
@@ -246,12 +317,17 @@ function Profile() {
     // =====================================================
 
     const handleChange = (event) => {
-        const { name, value } = event.target;
+        const {
+            name,
+            value,
+        } = event.target;
 
-        setFormData((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+        setFormData(
+            (previous) => ({
+                ...previous,
+                [name]: value,
+            })
+        );
 
         setError("");
     };
@@ -261,6 +337,13 @@ function Profile() {
     // =====================================================
 
     const handleSave = async () => {
+        if (!userId) {
+            setError(
+                "User session not found. Please login again."
+            );
+            return;
+        }
+
         const username =
             formData.username.trim();
 
@@ -287,12 +370,6 @@ function Profile() {
         try {
             setLoading(true);
             setError("");
-
-            /*
-             * IMPORTANT:
-             * MySQL column = full_name
-             * MySQL column = risk_level
-             */
 
             const payload = {
                 full_name: username,
@@ -334,6 +411,7 @@ function Profile() {
             } else {
                 const updatedProfile = {
                     ...profile,
+                    id: userId,
                     username,
                     email,
                     phone,
@@ -352,6 +430,50 @@ function Profile() {
                 });
             }
 
+            // Update localStorage user information
+            const currentStoredUser =
+                localStorage.getItem("user");
+
+            if (currentStoredUser) {
+                try {
+                    const currentUser =
+                        JSON.parse(
+                            currentStoredUser
+                        );
+
+                    const updatedLocalUser = {
+                        ...currentUser,
+                        id:
+                            currentUser.id ??
+                            currentUser.user_id ??
+                            userId,
+                        user_id:
+                            currentUser.user_id ??
+                            userId,
+                        full_name: username,
+                        username,
+                        email,
+                        phone,
+                        risk_level:
+                            formData.riskLevel,
+                        riskLevel:
+                            formData.riskLevel,
+                    };
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            updatedLocalUser
+                        )
+                    );
+                } catch (storageError) {
+                    console.error(
+                        "LOCAL STORAGE UPDATE ERROR:",
+                        storageError
+                    );
+                }
+            }
+
             setEditing(false);
         } catch (err) {
             console.error(
@@ -359,34 +481,19 @@ function Profile() {
                 err
             );
 
-            /*
-             * Backend error இருந்தாலும்
-             * UI-ல் entered data maintain ஆகும்.
-             */
-
-            setProfile((previous) => ({
-                ...previous,
-                username,
-                email,
-                phone,
-                riskLevel:
-                    formData.riskLevel,
-            }));
-
-            setFormData({
-                username,
-                email,
-                phone,
-                riskLevel:
-                    formData.riskLevel,
-            });
-
-            setEditing(false);
-
-            setError(
-                err?.response?.data?.message ??
-                "Unable to save profile."
-            );
+            if (
+                err?.response?.status === 401
+            ) {
+                setError(
+                    "Your session has expired. Please login again."
+                );
+            } else {
+                setError(
+                    err?.response?.data
+                        ?.message ??
+                    "Unable to save profile."
+                );
+            }
         } finally {
             setLoading(false);
         }
@@ -414,7 +521,7 @@ function Profile() {
 
     const formatDate = (date) => {
         if (!date) {
-            return "08/09/2026";
+            return "—";
         }
 
         const parsedDate = new Date(date);
@@ -445,7 +552,7 @@ function Profile() {
         return (
             profile.username
                 ?.charAt(0)
-                ?.toUpperCase() || "Y"
+                ?.toUpperCase() || "U"
         );
     };
 
@@ -478,6 +585,13 @@ function Profile() {
 
     const handleChangePassword =
         async () => {
+            if (!userId) {
+                setPasswordError(
+                    "User session not found. Please login again."
+                );
+                return;
+            }
+
             const {
                 currentPassword,
                 newPassword,
@@ -651,15 +765,18 @@ function Profile() {
                 <div className="profile-main-info">
 
                     <h2>
-                        {profile.username}
+                        {profile.username ||
+                            "User"}
                     </h2>
 
                     <p>
-                        {profile.email}
+                        {profile.email ||
+                            "No email available"}
                     </p>
 
                     <span className="user-id-badge">
-                        User ID #{profile.id}
+                        User ID #
+                        {profile.id || "—"}
                     </span>
 
                 </div>
@@ -777,7 +894,6 @@ function Profile() {
                                 <option value="High">
                                     High
                                 </option>
-
                             </select>
 
                         </div>
@@ -847,9 +963,8 @@ function Profile() {
                                 </span>
 
                                 <strong>
-                                    {
-                                        profile.username
-                                    }
+                                    {profile.username ||
+                                        "—"}
                                 </strong>
                             </div>
 
@@ -867,9 +982,8 @@ function Profile() {
                                 </span>
 
                                 <strong>
-                                    {
-                                        profile.email
-                                    }
+                                    {profile.email ||
+                                        "—"}
                                 </strong>
                             </div>
 
@@ -887,9 +1001,8 @@ function Profile() {
                                 </span>
 
                                 <strong>
-                                    {
-                                        profile.phone
-                                    }
+                                    {profile.phone ||
+                                        "—"}
                                 </strong>
                             </div>
 
@@ -908,12 +1021,12 @@ function Profile() {
 
                                 <strong
                                     className={`risk-${String(
-                                        profile.riskLevel
+                                        profile.riskLevel ||
+                                        "medium"
                                     ).toLowerCase()}`}
                                 >
-                                    {
-                                        profile.riskLevel
-                                    }
+                                    {profile.riskLevel ||
+                                        "Medium"}
                                 </strong>
                             </div>
 
@@ -931,7 +1044,9 @@ function Profile() {
                                 </span>
 
                                 <strong>
-                                    #{profile.id}
+                                    #
+                                    {profile.id ||
+                                        "—"}
                                 </strong>
                             </div>
 

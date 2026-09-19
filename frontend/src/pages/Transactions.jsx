@@ -3,8 +3,9 @@ import api from "../services/api";
 import "./Transactions.css";
 
 function Transactions() {
-    const userId = 2;
-
+    const storedUser = localStorage.getItem("user");
+const user = storedUser ? JSON.parse(storedUser) : null;
+const userId = user?.id;
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);

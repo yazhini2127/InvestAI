@@ -16,28 +16,33 @@ const {
 
 const buyInvestment = (req, res) => {
 
+    // Get logged-in user ID from JWT
+    const user_id = req.user.id;
+
     const {
-        user_id,
         investment_id,
         quantity
     } = req.body;
+
 
     // -----------------------------
     // Validation
     // -----------------------------
 
-    if (!user_id || !investment_id || !quantity) {
+    if (!investment_id || !quantity) {
         return res.status(400).json({
             success: false,
             message:
-                "User ID, Investment ID and Quantity are required"
+                "Investment ID and Quantity are required"
         });
     }
+
 
     if (Number(quantity) <= 0) {
         return res.status(400).json({
             success: false,
-            message: "Quantity must be greater than 0"
+            message:
+                "Quantity must be greater than 0"
         });
     }
 
@@ -58,7 +63,8 @@ const buyInvestment = (req, res) => {
 
                 return res.status(500).json({
                     success: false,
-                    message: "Failed to get investment"
+                    message:
+                        "Failed to get investment"
                 });
             }
 
@@ -66,7 +72,8 @@ const buyInvestment = (req, res) => {
             if (investmentResult.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    message: "Investment not found"
+                    message:
+                        "Investment not found"
                 });
             }
 
@@ -85,7 +92,7 @@ const buyInvestment = (req, res) => {
 
 
             // -----------------------------
-            // Get Wallet
+            // Get User Wallet
             // -----------------------------
 
             getWallet(
@@ -193,6 +200,75 @@ const buyInvestment = (req, res) => {
 
 
                                     // -----------------------------
+                                    // Save BUY Transaction
+                                    // -----------------------------
+
+                                    const saveBuyTransaction =
+                                        () => {
+
+                                            createTransaction(
+                                                {
+                                                    user_id,
+                                                    investment_id,
+                                                    transaction_type:
+                                                        "BUY",
+                                                    amount:
+                                                        totalAmount,
+                                                    quantity:
+                                                        buyQuantity
+                                                },
+                                                (
+                                                    transactionError,
+                                                    transactionResult
+                                                ) => {
+
+                                                    if (
+                                                        transactionError
+                                                    ) {
+                                                        console.error(
+                                                            "Transaction Error:",
+                                                            transactionError
+                                                        );
+
+                                                        return res.status(500).json({
+                                                            success: false,
+                                                            message:
+                                                                "Failed to create transaction"
+                                                        });
+                                                    }
+
+
+                                                    return res.status(201).json({
+                                                        success: true,
+                                                        message:
+                                                            "Investment purchased successfully",
+
+                                                        data: {
+                                                            transaction_id:
+                                                                transactionResult.insertId,
+
+                                                            investment:
+                                                                investment.investment_name,
+
+                                                            quantity:
+                                                                buyQuantity,
+
+                                                            price:
+                                                                price,
+
+                                                            amount:
+                                                                totalAmount,
+
+                                                            wallet_balance:
+                                                                newBalance
+                                                        }
+                                                    });
+                                                }
+                                            );
+                                        };
+
+
+                                    // -----------------------------
                                     // Existing Portfolio
                                     // -----------------------------
 
@@ -246,6 +322,7 @@ const buyInvestment = (req, res) => {
 
                                     }
 
+
                                     // -----------------------------
                                     // New Portfolio
                                     // -----------------------------
@@ -285,69 +362,6 @@ const buyInvestment = (req, res) => {
                                             }
                                         );
                                     }
-
-
-                                    // -----------------------------
-                                    // Save BUY Transaction
-                                    // -----------------------------
-
-                                    const saveBuyTransaction =
-                                        () => {
-
-                                            createTransaction(
-                                                {
-                                                    user_id,
-                                                    investment_id,
-                                                    transaction_type:
-                                                        "BUY",
-                                                    amount:
-                                                        totalAmount,
-                                                    quantity:
-                                                        buyQuantity
-                                                },
-                                                (
-                                                    transactionError,
-                                                    transactionResult
-                                                ) => {
-
-                                                    if (
-                                                        transactionError
-                                                    ) {
-                                                        console.error(
-                                                            "Transaction Error:",
-                                                            transactionError
-                                                        );
-
-                                                        return res.status(500).json({
-                                                            success: false,
-                                                            message:
-                                                                "Failed to create transaction"
-                                                        });
-                                                    }
-
-
-                                                    return res.status(201).json({
-                                                        success: true,
-                                                        message:
-                                                            "Investment purchased successfully",
-                                                        data: {
-                                                            transaction_id:
-                                                                transactionResult.insertId,
-                                                            investment:
-                                                                investment.investment_name,
-                                                            quantity:
-                                                                buyQuantity,
-                                                            price:
-                                                                price,
-                                                            amount:
-                                                                totalAmount,
-                                                            wallet_balance:
-                                                                newBalance
-                                                        }
-                                                    });
-                                                }
-                                            );
-                                        };
                                 }
                             );
                         }
@@ -365,18 +379,24 @@ const buyInvestment = (req, res) => {
 
 const sellInvestment = (req, res) => {
 
+    // Get logged-in user ID from JWT
+    const user_id = req.user.id;
+
     const {
-        user_id,
         investment_id,
         quantity
     } = req.body;
 
 
-    if (!user_id || !investment_id || !quantity) {
+    // -----------------------------
+    // Validation
+    // -----------------------------
+
+    if (!investment_id || !quantity) {
         return res.status(400).json({
             success: false,
             message:
-                "User ID, Investment ID and Quantity are required"
+                "Investment ID and Quantity are required"
         });
     }
 
@@ -403,6 +423,11 @@ const sellInvestment = (req, res) => {
         (investmentError, investmentResult) => {
 
             if (investmentError) {
+                console.error(
+                    "Investment Error:",
+                    investmentError
+                );
+
                 return res.status(500).json({
                     success: false,
                     message:
@@ -426,13 +451,12 @@ const sellInvestment = (req, res) => {
             const price =
                 Number(investment.current_price);
 
-
             const totalAmount =
                 price * sellQuantity;
 
 
             // -----------------------------
-            // Get Portfolio
+            // Get User Portfolio
             // -----------------------------
 
             getPortfolioInvestment(
@@ -444,6 +468,11 @@ const sellInvestment = (req, res) => {
                 ) => {
 
                     if (portfolioError) {
+                        console.error(
+                            "Portfolio Error:",
+                            portfolioError
+                        );
+
                         return res.status(500).json({
                             success: false,
                             message:
@@ -482,8 +511,10 @@ const sellInvestment = (req, res) => {
                             success: false,
                             message:
                                 "Insufficient investment quantity",
+
                             available:
                                 currentQuantity,
+
                             requested:
                                 sellQuantity
                         });
@@ -496,7 +527,7 @@ const sellInvestment = (req, res) => {
 
 
                     // -----------------------------
-                    // Calculate invested amount
+                    // Calculate Remaining Amount
                     // -----------------------------
 
                     const averagePrice =
@@ -565,7 +596,7 @@ const sellInvestment = (req, res) => {
 
 
                             // -----------------------------
-                            // Get Wallet
+                            // Get User Wallet
                             // -----------------------------
 
                             getWallet(
@@ -576,6 +607,11 @@ const sellInvestment = (req, res) => {
                                 ) => {
 
                                     if (walletError) {
+                                        console.error(
+                                            "Wallet Error:",
+                                            walletError
+                                        );
+
                                         return res.status(500).json({
                                             success: false,
                                             message:
@@ -623,6 +659,11 @@ const sellInvestment = (req, res) => {
                                             if (
                                                 walletUpdateError
                                             ) {
+                                                console.error(
+                                                    "Wallet Update Error:",
+                                                    walletUpdateError
+                                                );
+
                                                 return res.status(500).json({
                                                     success: false,
                                                     message:
@@ -632,7 +673,7 @@ const sellInvestment = (req, res) => {
 
 
                                             // -----------------------------
-                                            // Transaction
+                                            // Save SELL Transaction
                                             // -----------------------------
 
                                             createTransaction(
@@ -654,6 +695,11 @@ const sellInvestment = (req, res) => {
                                                     if (
                                                         transactionError
                                                     ) {
+                                                        console.error(
+                                                            "Transaction Error:",
+                                                            transactionError
+                                                        );
+
                                                         return res.status(500).json({
                                                             success: false,
                                                             message:
@@ -666,19 +712,26 @@ const sellInvestment = (req, res) => {
                                                         success: true,
                                                         message:
                                                             "Investment sold successfully",
+
                                                         data: {
                                                             transaction_id:
                                                                 transactionResult.insertId,
+
                                                             investment:
                                                                 investment.investment_name,
+
                                                             quantity:
                                                                 sellQuantity,
+
                                                             price:
                                                                 price,
+
                                                             amount:
                                                                 totalAmount,
+
                                                             wallet_balance:
                                                                 newBalance,
+
                                                             remaining_quantity:
                                                                 remainingQuantity
                                                         }
