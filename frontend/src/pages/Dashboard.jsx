@@ -76,143 +76,127 @@ function Dashboard() {
     // LOAD DASHBOARD
     // =====================================================
 
-    const loadDashboard = useCallback(async () => {
+   const loadDashboard = useCallback(async () => {
+    try {
+        setError("");
 
-        try {
+        const token = localStorage.getItem("token");
 
-            setError("");
+        const headers = {
+            "Content-Type": "application/json",
+        };
 
-            const userId = getUserId();
-
-            const results = await Promise.allSettled([
-
-                fetch(`${API_URL}/wallet/${userId}`),
-
-                fetch(`${API_URL}/portfolio/${userId}`),
-
-                fetch(`${API_URL}/sip-plans/${userId}`),
-
-                fetch(`${API_URL}/transactions/user/${userId}`),
-
-            ]);
-
-            // =================================================
-            // WALLET
-            // =================================================
-
-            if (
-                results[0].status === "fulfilled" &&
-                results[0].value.ok
-            ) {
-
-                const data =
-                    await results[0].value.json();
-
-                if (data.success) {
-
-                    setWallet(
-                        data.wallet ||
-                        data.data ||
-                        null
-                    );
-
-                }
-
-            }
-
-            // =================================================
-            // PORTFOLIO
-            // =================================================
-
-            if (
-                results[1].status === "fulfilled" &&
-                results[1].value.ok
-            ) {
-
-                const data =
-                    await results[1].value.json();
-
-                if (data.success) {
-
-                    setPortfolio(
-                        data.portfolio ||
-                        data.data ||
-                        []
-                    );
-
-                }
-
-            }
-
-            // =================================================
-            // SIP
-            // =================================================
-
-            if (
-                results[2].status === "fulfilled" &&
-                results[2].value.ok
-            ) {
-
-                const data =
-                    await results[2].value.json();
-
-                if (data.success) {
-
-                    setSipPlans(
-                        data.sipPlans ||
-                        data.sip_plans ||
-                        data.plans ||
-                        data.data ||
-                        []
-                    );
-
-                }
-
-            }
-
-            // =================================================
-            // TRANSACTIONS
-            // =================================================
-
-            if (
-                results[3].status === "fulfilled" &&
-                results[3].value.ok
-            ) {
-
-                const data =
-                    await results[3].value.json();
-
-                if (data.success) {
-
-                    setTransactions(
-                        data.transactions ||
-                        data.data ||
-                        []
-                    );
-
-                }
-
-            }
-
-        } catch (err) {
-
-            console.error(
-                "Dashboard Error:",
-                err
-            );
-
-            setError(
-                "Unable to connect to InvestAI backend."
-            );
-
-        } finally {
-
-            setLoading(false);
-            setRefreshing(false);
-
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
         }
 
-    }, [getUserId]);
+        const results = await Promise.allSettled([
+            fetch(`${API_URL}/wallet`, {
+                headers,
+            }),
+
+            fetch(`${API_URL}/portfolio`, {
+                headers,
+            }),
+
+            fetch(`${API_URL}/sip-plans/${getUserId()}`, {
+                headers,
+            }),
+
+            fetch(`${API_URL}/transactions/user/${getUserId()}`, {
+                headers,
+            }),
+        ]);
+
+        // =================================================
+        // WALLET
+        // =================================================
+
+        if (
+            results[0].status === "fulfilled" &&
+            results[0].value.ok
+        ) {
+            const data = await results[0].value.json();
+
+            if (data.success) {
+                setWallet(
+                    data.wallet ||
+                    data.data ||
+                    null
+                );
+            }
+        }
+
+        // =================================================
+        // PORTFOLIO
+        // =================================================
+
+        if (
+            results[1].status === "fulfilled" &&
+            results[1].value.ok
+        ) {
+            const data = await results[1].value.json();
+
+            if (data.success) {
+                setPortfolio(
+                    data.portfolio ||
+                    data.data ||
+                    []
+                );
+            }
+        }
+
+        // =================================================
+        // SIP
+        // =================================================
+
+        if (
+            results[2].status === "fulfilled" &&
+            results[2].value.ok
+        ) {
+            const data = await results[2].value.json();
+
+            if (data.success) {
+                setSipPlans(
+                    data.sipPlans ||
+                    data.sip_plans ||
+                    data.plans ||
+                    data.data ||
+                    []
+                );
+            }
+        }
+
+        // =================================================
+        // TRANSACTIONS
+        // =================================================
+
+        if (
+            results[3].status === "fulfilled" &&
+            results[3].value.ok
+        ) {
+            const data = await results[3].value.json();
+
+            if (data.success) {
+                setTransactions(
+                    data.transactions ||
+                    data.data ||
+                    []
+                );
+            }
+        }
+
+    } catch (err) {
+        console.error("Dashboard Error:", err);
+
+        setError(
+            "Unable to connect to InvestAI backend."
+        );
+    } finally {
+        setLoading(false);
+        setRefreshing(false);
+    }
+}, [getUserId]);
 
     // =====================================================
     // INITIAL LOAD
@@ -1435,8 +1419,8 @@ function Dashboard() {
                                                     }
                                                     fill={
                                                         COLORS[
-                                                            index %
-                                                                COLORS.length
+                                                        index %
+                                                        COLORS.length
                                                         ]
                                                     }
                                                 />
@@ -1620,13 +1604,13 @@ function Dashboard() {
                                             const quantity =
                                                 Number(
                                                     item.quantity ||
-                                                        0
+                                                    0
                                                 );
 
                                             const price =
                                                 Number(
                                                     item.current_price ||
-                                                        0
+                                                    0
                                                 );
 
                                             const value =
@@ -1636,7 +1620,7 @@ function Dashboard() {
                                             const invested =
                                                 Number(
                                                     item.invested_amount ||
-                                                        0
+                                                    0
                                                 );
 
                                             const itemProfit =
@@ -1689,13 +1673,13 @@ function Dashboard() {
                                                         <span
                                                             className={
                                                                 itemProfit >=
-                                                                0
+                                                                    0
                                                                     ? "positive"
                                                                     : "negative"
                                                             }
                                                         >
                                                             {itemProfit >=
-                                                            0
+                                                                0
                                                                 ? "+"
                                                                 : "-"}
                                                             ₹
@@ -1772,7 +1756,7 @@ function Dashboard() {
                         </div>
 
                         {recentTransactions.length >
-                        0 ? (
+                            0 ? (
 
                             <div className="transactions-list">
 
@@ -1800,12 +1784,12 @@ function Dashboard() {
                                                     className={`transaction-type ${type.toLowerCase()}`}
                                                 >
                                                     {type ===
-                                                    "BUY"
+                                                        "BUY"
                                                         ? "↗"
                                                         : type ===
-                                                          "SELL"
-                                                        ? "↘"
-                                                        : "🔄"}
+                                                            "SELL"
+                                                            ? "↘"
+                                                            : "🔄"}
                                                 </div>
 
                                                 <div className="transaction-info">
@@ -1979,7 +1963,7 @@ function Dashboard() {
                             </strong>{" "}
                             investment
                             {portfolio.length !==
-                            1
+                                1
                                 ? "s"
                                 : ""}
                             .
