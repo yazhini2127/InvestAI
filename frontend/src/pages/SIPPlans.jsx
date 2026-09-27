@@ -25,15 +25,47 @@ const defaultPlans = [
   },
 ];
 
+const investmentOptions = [
+  "Tata Motors",
+  "TVS Motor",
+  "Reliance Industries",
+  "HDFC Bank",
+  "ICICI Bank",
+  "State Bank of India",
+  "Infosys",
+  "TCS",
+  "Wipro",
+  "HCL Technologies",
+  "ITC",
+  "Larsen & Toubro",
+  "Bharti Airtel",
+  "Asian Paints",
+  "Maruti Suzuki",
+  "Mahindra & Mahindra",
+  "Bajaj Finance",
+  "NIFTY 50",
+  "NIFTY Bank",
+  "NIFTY IT",
+  "NIFTY Next 50",
+  "Gold ETF",
+  "Digital Gold",
+  "Bitcoin",
+  "Ethereum",
+];
+
 function getInitialPlans() {
   try {
     const saved = localStorage.getItem("investai_sip_plans");
 
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
-  } catch {
-    return defaultPlans;
+  } catch (error) {
+    console.error("Failed to load SIP plans:", error);
   }
 
   return defaultPlans;
@@ -45,7 +77,7 @@ function SIPPlans() {
   const [editingId, setEditingId] = useState(null);
 
   const [form, setForm] = useState({
-    investment: "Investment #1",
+    investment: "Tata Motors",
     amount: "",
     date: "",
   });
@@ -72,7 +104,7 @@ function SIPPlans() {
     setEditingId(null);
 
     setForm({
-      investment: "Investment #1",
+      investment: "Tata Motors",
       amount: "",
       date: "",
     });
@@ -85,7 +117,7 @@ function SIPPlans() {
     setEditingId(null);
 
     setForm({
-      investment: "Investment #1",
+      investment: "Tata Motors",
       amount: "",
       date: "",
     });
@@ -97,6 +129,11 @@ function SIPPlans() {
     const amount = Number(form.amount);
     const date = Number(form.date);
 
+    if (!form.investment) {
+      alert("Please select an investment");
+      return;
+    }
+
     if (!amount || amount < 500) {
       alert("Minimum SIP amount is ₹500");
       return;
@@ -107,6 +144,9 @@ function SIPPlans() {
       return;
     }
 
+    // ==============================
+    // UPDATE SIP
+    // ==============================
     if (editingId !== null) {
       const updatedPlans = plans.map((plan) => {
         if (plan.id === editingId) {
@@ -130,6 +170,9 @@ function SIPPlans() {
       return;
     }
 
+    // ==============================
+    // CREATE SIP
+    // ==============================
     const highestId =
       plans.length > 0
         ? Math.max(
@@ -158,8 +201,13 @@ function SIPPlans() {
     setEditingId(plan.id);
 
     setForm({
-      investment: plan.investment,
+      investment:
+        investmentOptions.includes(plan.investment)
+          ? plan.investment
+          : "Tata Motors",
+
       amount: String(plan.amount),
+
       date: String(plan.date),
     });
 
@@ -209,14 +257,26 @@ function SIPPlans() {
       );
 
       if (saved) {
-        setPlans(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+
+        if (Array.isArray(parsed)) {
+          setPlans(parsed);
+        } else {
+          setPlans(defaultPlans);
+        }
       } else {
         setPlans(defaultPlans);
       }
 
       alert("SIP plans refreshed!");
-    } catch {
+    } catch (error) {
+      console.error(
+        "SIP refresh error:",
+        error
+      );
+
       setPlans(defaultPlans);
+
       alert("Unable to refresh SIP plans.");
     }
   };
@@ -227,14 +287,16 @@ function SIPPlans() {
 
   const monthlyAmount = activePlans.reduce(
     (total, plan) =>
-      total + Number(plan.amount),
+      total + Number(plan.amount || 0),
     0
   );
 
   return (
     <div className="sip-page">
 
-      {/* HEADER */}
+      {/* ==============================
+          HEADER
+      ============================== */}
 
       <div className="sip-header">
 
@@ -267,7 +329,9 @@ function SIPPlans() {
       </div>
 
 
-      {/* SUMMARY */}
+      {/* ==============================
+          SUMMARY
+      ============================== */}
 
       <div className="sip-summary">
 
@@ -315,7 +379,9 @@ function SIPPlans() {
       </div>
 
 
-      {/* FORM */}
+      {/* ==============================
+          CREATE / EDIT FORM
+      ============================== */}
 
       {showForm && (
 
@@ -341,17 +407,16 @@ function SIPPlans() {
                 onChange={handleChange}
               >
 
-                <option value="Investment #1">
-                  Investment #1
-                </option>
-
-                <option value="Tata Motors">
-                  Tata Motors
-                </option>
-
-                <option value="TVS Motor">
-                  TVS Motor
-                </option>
+                {investmentOptions.map(
+                  (investment) => (
+                    <option
+                      key={investment}
+                      value={investment}
+                    >
+                      {investment}
+                    </option>
+                  )
+                )}
 
               </select>
 
@@ -424,7 +489,9 @@ function SIPPlans() {
       )}
 
 
-      {/* SIP LIST */}
+      {/* ==============================
+          SIP LIST
+      ============================== */}
 
       <div className="sip-list">
 
@@ -577,7 +644,9 @@ function SIPPlans() {
       </div>
 
 
-      {/* FOOTER */}
+      {/* ==============================
+          FOOTER
+      ============================== */}
 
       <footer className="sip-footer">
 

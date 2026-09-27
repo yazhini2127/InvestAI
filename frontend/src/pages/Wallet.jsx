@@ -1,58 +1,71 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import api from "../services/api";
 
 function Wallet() {
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Temporary user ID
-  const storedUser = localStorage.getItem("user");
-  const user = storedUser ? JSON.parse(storedUser) : null;
-  const userId = user?.id;
+  // =====================================================
+  // LOAD WALLET
+  // =====================================================
+  const fetchWallet = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-  // Load wallet when page opens
-  useEffect(() => {
-    let cancelled = false;
+      const response = await api.get("/wallet");
 
-    const fetchWallet = async () => {
-      try {
-        const response = await api.get("/wallet");
+      console.log("💰 Wallet Response:", response.data);
 
-        if (!cancelled && response.data.success) {
-          setBalance(Number(response.data.wallet.balance));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Wallet Error:", err);
+      if (response.data?.success) {
+        const walletBalance = Number(
+          response.data?.wallet?.balance || 0
+        );
 
-          setError(
-            err.response?.data?.message ||
-              "Failed to load wallet"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setBalance(walletBalance);
+      } else {
+        setBalance(0);
+
+        setError(
+          response.data?.message ||
+            "Failed to load wallet"
+        );
       }
-    };
+    } catch (err) {
+      console.error(
+        "❌ Wallet Error:",
+        err.response?.data || err.message
+      );
 
+      setBalance(0);
+
+      setError(
+        err.response?.data?.message ||
+          "Failed to load wallet"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // LOAD WALLET ON FIRST RENDER
+  // =====================================================
+  if (!loading && balance === 0 && !error && !message) {
     fetchWallet();
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  // Deposit
+  // =====================================================
+  // DEPOSIT
+  // =====================================================
   const handleDeposit = async () => {
     const value = Number(amount);
 
-    if (!value || value <= 0) {
-      alert("Enter a valid amount");
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a valid amount");
       return;
     }
 
@@ -60,26 +73,42 @@ function Wallet() {
       setError("");
       setMessage("");
 
-      const response = await api.post("/wallet/deposit", {
+      const response = await api.post(
+        "/wallet/deposit",
+        {
           amount: value,
         }
       );
 
-      if (response.data.success) {
+      console.log(
+        "💰 Deposit Response:",
+        response.data
+      );
+
+      if (response.data?.success) {
         setMessage("Money added successfully");
         setAmount("");
 
-        // Get updated balance
-        const walletResponse = await api.get("/wallet");
-
-        if (walletResponse.data.success) {
+        if (response.data?.wallet) {
           setBalance(
-            Number(walletResponse.data.wallet.balance)
+            Number(
+              response.data.wallet.balance || 0
+            )
           );
+        } else {
+          await fetchWallet();
         }
+      } else {
+        setError(
+          response.data?.message ||
+            "Deposit failed"
+        );
       }
     } catch (err) {
-      console.error("Deposit Error:", err);
+      console.error(
+        "❌ Deposit Error:",
+        err.response?.data || err.message
+      );
 
       setError(
         err.response?.data?.message ||
@@ -88,17 +117,19 @@ function Wallet() {
     }
   };
 
-  // Withdraw
+  // =====================================================
+  // WITHDRAW
+  // =====================================================
   const handleWithdraw = async () => {
     const value = Number(amount);
 
-    if (!value || value <= 0) {
-      alert("Enter a valid amount");
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a valid amount");
       return;
     }
 
     if (value > balance) {
-      alert("Insufficient Balance");
+      setError("Insufficient Balance");
       return;
     }
 
@@ -106,26 +137,44 @@ function Wallet() {
       setError("");
       setMessage("");
 
-      const response = await api.post("/wallet/withdraw", {
+      const response = await api.post(
+        "/wallet/withdraw",
+        {
           amount: value,
         }
       );
 
-      if (response.data.success) {
-        setMessage("Money withdrawn successfully");
+      console.log(
+        "💸 Withdraw Response:",
+        response.data
+      );
+
+      if (response.data?.success) {
+        setMessage(
+          "Money withdrawn successfully"
+        );
         setAmount("");
 
-        // Get updated balance
-        const walletResponse = await api.get("/wallet");
-
-        if (walletResponse.data.success) {
+        if (response.data?.wallet) {
           setBalance(
-            Number(walletResponse.data.wallet.balance)
+            Number(
+              response.data.wallet.balance || 0
+            )
           );
+        } else {
+          await fetchWallet();
         }
+      } else {
+        setError(
+          response.data?.message ||
+            "Withdraw failed"
+        );
       }
     } catch (err) {
-      console.error("Withdraw Error:", err);
+      console.error(
+        "❌ Withdraw Error:",
+        err.response?.data || err.message
+      );
 
       setError(
         err.response?.data?.message ||
@@ -134,6 +183,18 @@ function Wallet() {
     }
   };
 
+  // =====================================================
+  // FORMAT BALANCE
+  // =====================================================
+  const formattedBalance =
+    balance.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  // =====================================================
+  // UI
+  // =====================================================
   return (
     <div
       style={{
@@ -145,7 +206,9 @@ function Wallet() {
       <h1>💰 Wallet</h1>
 
       {/* Loading */}
-      {loading && <p>Loading wallet...</p>}
+      {loading && (
+        <p>Loading wallet...</p>
+      )}
 
       {/* Error */}
       {error && (
@@ -155,9 +218,10 @@ function Wallet() {
             background: "#fee2e2",
             padding: "10px",
             borderRadius: "8px",
+            maxWidth: "500px",
           }}
         >
-          {error}
+          ❌ {error}
         </p>
       )}
 
@@ -169,9 +233,10 @@ function Wallet() {
             background: "#dcfce7",
             padding: "10px",
             borderRadius: "8px",
+            maxWidth: "500px",
           }}
         >
-          {message}
+          ✅ {message}
         </p>
       )}
 
@@ -192,21 +257,21 @@ function Wallet() {
             <h2>Current Balance</h2>
 
             <h1>
-              ₹{" "}
-              {balance.toLocaleString("en-IN", {
-                minimumFractionDigits: 2,
-              })}
+              ₹ {formattedBalance}
             </h1>
           </div>
 
           {/* Amount Input */}
           <input
             type="number"
+            min="1"
             placeholder="Enter Amount"
             value={amount}
-            onChange={(e) =>
-              setAmount(e.target.value)
-            }
+            onChange={(e) => {
+              setAmount(e.target.value);
+              setError("");
+              setMessage("");
+            }}
             style={{
               padding: "10px",
               width: "250px",

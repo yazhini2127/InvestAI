@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -17,9 +23,13 @@ import {
     Cell,
 } from "recharts";
 
+import api from "../services/api";
 import "./Dashboard.css";
 
-const API_URL = "https://investai-tww5.onrender.com/api";
+// =====================================================
+// DASHBOARD
+// =====================================================
+
 function Dashboard() {
 
     const navigate = useNavigate();
@@ -33,170 +43,366 @@ function Dashboard() {
     const [sipPlans, setSipPlans] = useState([]);
     const [transactions, setTransactions] = useState([]);
 
+
     // =====================================================
-    // USER ID
+    // GET LOGGED-IN USER ID
     // =====================================================
 
     const getUserId = useCallback(() => {
 
-        const storedUser =
-            localStorage.getItem("user") ||
-            localStorage.getItem("userData");
+        try {
 
-        if (storedUser) {
+            const directUserId =
+                localStorage.getItem("userId");
 
-            try {
+            if (directUserId) {
+                return Number(directUserId);
+            }
 
-                const user = JSON.parse(storedUser);
+            const savedUser =
+                localStorage.getItem("user");
 
-                return (
-                    user.user_id ||
-                    user.userId ||
-                    user.id ||
-                    1
+            if (savedUser) {
+
+                const user =
+                    JSON.parse(savedUser);
+
+                return Number(
+                    user?.id ||
+                    user?.user_id ||
+                    user?.userId ||
+                    0
                 );
-
-            } catch {
-
-                return 1;
 
             }
 
+            const savedUserData =
+                localStorage.getItem("userData");
+
+            if (savedUserData) {
+
+                const user =
+                    JSON.parse(savedUserData);
+
+                return Number(
+                    user?.id ||
+                    user?.user_id ||
+                    user?.userId ||
+                    0
+                );
+
+            }
+
+        } catch (err) {
+
+            console.error(
+                "User ID error:",
+                err
+            );
+
         }
 
-        return (
-            localStorage.getItem("userId") ||
-            localStorage.getItem("user_id") ||
-            1
-        );
+        return 0;
 
     }, []);
+
+
+    // =====================================================
+    // LOAD SIP PLANS FROM LOCAL STORAGE
+    // =====================================================
+
+    const loadLocalSips = useCallback(() => {
+
+        try {
+
+            const saved =
+                localStorage.getItem(
+                    "investai_sip_plans"
+                );
+
+            if (!saved) {
+
+                setSipPlans([]);
+
+                return;
+
+            }
+
+            const parsed =
+                JSON.parse(saved);
+
+            if (Array.isArray(parsed)) {
+
+                setSipPlans(parsed);
+
+            } else {
+
+                setSipPlans([]);
+
+            }
+
+        } catch (err) {
+
+            console.error(
+                "SIP localStorage error:",
+                err
+            );
+
+            setSipPlans([]);
+
+        }
+
+    }, []);
+
+
+    // =====================================================
+    // NORMALIZE API ARRAY
+    // =====================================================
+
+    const extractArray = useCallback(
+        (data, keys = []) => {
+
+            if (Array.isArray(data)) {
+                return data;
+            }
+
+            for (const key of keys) {
+
+                if (Array.isArray(data?.[key])) {
+                    return data[key];
+                }
+
+            }
+
+            if (Array.isArray(data?.data)) {
+                return data.data;
+            }
+
+            return [];
+
+        },
+        []
+    );
+
 
     // =====================================================
     // LOAD DASHBOARD
     // =====================================================
 
-   const loadDashboard = useCallback(async () => {
-    try {
-        setError("");
+    const loadDashboard =
+        useCallback(async () => {
 
-        const token = localStorage.getItem("token");
+            try {
 
-        const headers = {
-            "Content-Type": "application/json",
-        };
+                setError("");
 
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
+                const userId =
+                    getUserId();
 
-        const results = await Promise.allSettled([
-            fetch(`${API_URL}/wallet`, {
-                headers,
-            }),
 
-            fetch(`${API_URL}/portfolio`, {
-                headers,
-            }),
+                // =================================================
+                // API REQUESTS
+                // =================================================
 
-            fetch(`${API_URL}/sip-plans/${getUserId()}`, {
-                headers,
-            }),
+                const walletRequest =
+                    api.get("/wallet");
 
-            fetch(`${API_URL}/transactions/user/${getUserId()}`, {
-                headers,
-            }),
+                const portfolioRequest =
+                    api.get("/portfolio");
+
+                let transactionRequest;
+
+                /*
+                 * Your transactions backend is user-specific.
+                 * Therefore use:
+                 *
+                 * /transactions/user/:userId
+                 */
+
+                if (userId > 0) {
+
+                    transactionRequest =
+                        api.get(
+                            `/transactions/user/${userId}`
+                        );
+
+                } else {
+
+                    transactionRequest =
+                        Promise.reject(
+                            new Error(
+                                "User ID not found"
+                            )
+                        );
+
+                }
+
+
+                const results =
+                    await Promise.allSettled([
+                        walletRequest,
+                        portfolioRequest,
+                        transactionRequest,
+                    ]);
+
+
+                // =================================================
+                // WALLET
+                // =================================================
+
+                if (
+                    results[0].status ===
+                    "fulfilled"
+                ) {
+
+                    const data =
+                        results[0].value?.data;
+
+                    console.log(
+                        "💰 Dashboard Wallet:",
+                        data
+                    );
+
+                    if (data?.success !== false) {
+
+                        const walletData =
+                            data?.wallet ||
+                            data?.data ||
+                            data ||
+                            null;
+
+                        setWallet(
+                            walletData
+                        );
+
+                    }
+
+                } else {
+
+                    console.error(
+                        "❌ Wallet API Error:",
+                        results[0].reason
+                    );
+
+                }
+
+
+                // =================================================
+                // PORTFOLIO
+                // =================================================
+
+                if (
+                    results[1].status ===
+                    "fulfilled"
+                ) {
+
+                    const data =
+                        results[1].value?.data;
+
+                    console.log(
+                        "💼 Dashboard Portfolio:",
+                        data
+                    );
+
+                    const portfolioData =
+                        extractArray(
+                            data,
+                            [
+                                "portfolio",
+                                "data",
+                                "result",
+                            ]
+                        );
+
+                    setPortfolio(
+                        portfolioData
+                    );
+
+                } else {
+
+                    console.error(
+                        "❌ Portfolio API Error:",
+                        results[1].reason
+                    );
+
+                    setPortfolio([]);
+
+                }
+
+
+                // =================================================
+                // TRANSACTIONS
+                // =================================================
+
+                if (
+                    results[2].status ===
+                    "fulfilled"
+                ) {
+
+                    const data =
+                        results[2].value?.data;
+
+                    console.log(
+                        "🔄 Dashboard Transactions:",
+                        data
+                    );
+
+                    const transactionData =
+                        extractArray(
+                            data,
+                            [
+                                "transactions",
+                                "data",
+                                "result",
+                            ]
+                        );
+
+                    setTransactions(
+                        transactionData
+                    );
+
+                } else {
+
+                    console.error(
+                        "❌ Transactions API Error:",
+                        results[2].reason
+                    );
+
+                    setTransactions([]);
+
+                }
+
+
+                // =================================================
+                // SIP
+                // =================================================
+
+                loadLocalSips();
+
+            } catch (err) {
+
+                console.error(
+                    "❌ Dashboard Error:",
+                    err
+                );
+
+                setError(
+                    "Unable to load dashboard data."
+                );
+
+            } finally {
+
+                setLoading(false);
+                setRefreshing(false);
+
+            }
+
+        }, [
+            getUserId,
+            loadLocalSips,
+            extractArray,
         ]);
 
-        // =================================================
-        // WALLET
-        // =================================================
-
-        if (
-            results[0].status === "fulfilled" &&
-            results[0].value.ok
-        ) {
-            const data = await results[0].value.json();
-
-            if (data.success) {
-                setWallet(
-                    data.wallet ||
-                    data.data ||
-                    null
-                );
-            }
-        }
-
-        // =================================================
-        // PORTFOLIO
-        // =================================================
-
-        if (
-            results[1].status === "fulfilled" &&
-            results[1].value.ok
-        ) {
-            const data = await results[1].value.json();
-
-            if (data.success) {
-                setPortfolio(
-                    data.portfolio ||
-                    data.data ||
-                    []
-                );
-            }
-        }
-
-        // =================================================
-        // SIP
-        // =================================================
-
-        if (
-            results[2].status === "fulfilled" &&
-            results[2].value.ok
-        ) {
-            const data = await results[2].value.json();
-
-            if (data.success) {
-                setSipPlans(
-                    data.sipPlans ||
-                    data.sip_plans ||
-                    data.plans ||
-                    data.data ||
-                    []
-                );
-            }
-        }
-
-        // =================================================
-        // TRANSACTIONS
-        // =================================================
-
-        if (
-            results[3].status === "fulfilled" &&
-            results[3].value.ok
-        ) {
-            const data = await results[3].value.json();
-
-            if (data.success) {
-                setTransactions(
-                    data.transactions ||
-                    data.data ||
-                    []
-                );
-            }
-        }
-
-    } catch (err) {
-        console.error("Dashboard Error:", err);
-
-        setError(
-            "Unable to connect to InvestAI backend."
-        );
-    } finally {
-        setLoading(false);
-        setRefreshing(false);
-    }
-}, [getUserId]);
 
     // =====================================================
     // INITIAL LOAD
@@ -204,84 +410,284 @@ function Dashboard() {
 
     useEffect(() => {
 
-        let mounted = true;
+        const timer =
+            setTimeout(() => {
 
-        const startLoading = async () => {
+                loadDashboard();
 
-            if (!mounted) return;
-
-            await loadDashboard();
-
-        };
-
-        startLoading();
+            }, 0);
 
         return () => {
-
-            mounted = false;
-
+            clearTimeout(timer);
         };
 
     }, [loadDashboard]);
+
 
     // =====================================================
     // REFRESH
     // =====================================================
 
-    const handleRefresh = async () => {
+    const handleRefresh =
+        async () => {
 
-        setRefreshing(true);
+            if (refreshing) {
+                return;
+            }
 
-        await loadDashboard();
+            setRefreshing(true);
 
-    };
+            loadLocalSips();
+
+            await loadDashboard();
+
+        };
+
+
+    // =====================================================
+    // ACTIVE SIP PLANS
+    // =====================================================
+
+    const activeSipPlans =
+        useMemo(() => {
+
+            return sipPlans.filter(
+                (plan) =>
+                    String(
+                        plan?.status || ""
+                    ).toLowerCase() ===
+                    "active"
+            );
+
+        }, [sipPlans]);
+
+
+    // =====================================================
+    // MONTHLY SIP AMOUNT
+    // =====================================================
+
+    const monthlySipAmount =
+        useMemo(() => {
+
+            return activeSipPlans.reduce(
+                (total, plan) => {
+
+                    return (
+                        total +
+                        Number(
+                            plan?.amount ||
+                            plan?.monthlyAmount ||
+                            0
+                        )
+                    );
+
+                },
+                0
+            );
+
+        }, [activeSipPlans]);
+
+
+    // =====================================================
+    // COMBINE DUPLICATE INVESTMENTS
+    //
+    // Same investment is shown as ONE holding.
+    //
+    // Example:
+    //
+    // Ethereum Qty 1
+    // Ethereum Qty 1
+    //
+    // becomes:
+    //
+    // Ethereum Qty 2
+    //
+    // =====================================================
+
+    const groupedPortfolio =
+        useMemo(() => {
+
+            const grouped = {};
+
+            portfolio.forEach(
+                (item) => {
+
+                    const investmentId =
+                        Number(
+                            item?.investment_id ??
+                            item?.investmentId ??
+                            0
+                        );
+
+                    /*
+                     * Primary grouping is investment ID.
+                     *
+                     * This prevents duplicate Ethereum,
+                     * duplicate ITC, etc.
+                     */
+
+                    const key =
+                        investmentId > 0
+                            ? `investment_${investmentId}`
+                            : `name_${String(
+                                  item?.investment_name ||
+                                  item?.investmentName ||
+                                  "unknown"
+                              ).toLowerCase()}`;
+
+
+                    if (!grouped[key]) {
+
+                        grouped[key] = {
+
+                            ...item,
+
+                            quantity: 0,
+
+                            invested_amount: 0,
+
+                            current_value: 0,
+
+                            platforms: [],
+
+                        };
+
+                    }
+
+
+                    // -----------------------------------------
+                    // QUANTITY
+                    // -----------------------------------------
+
+                    grouped[key].quantity +=
+                        Number(
+                            item?.quantity ||
+                            0
+                        );
+
+
+                    // -----------------------------------------
+                    // INVESTED AMOUNT
+                    // -----------------------------------------
+
+                    grouped[key].invested_amount +=
+                        Number(
+                            item?.invested_amount ||
+                            item?.investedAmount ||
+                            item?.amount ||
+                            0
+                        );
+
+
+                    // -----------------------------------------
+                    // CURRENT VALUE
+                    // -----------------------------------------
+
+                    const quantity =
+                        Number(
+                            item?.quantity ||
+                            0
+                        );
+
+                    const price =
+                        Number(
+                            item?.current_price ||
+                            item?.currentPrice ||
+                            0
+                        );
+
+                    grouped[key].current_value +=
+                        quantity * price;
+
+
+                    // -----------------------------------------
+                    // PLATFORM
+                    // -----------------------------------------
+
+                    const platformName =
+                        item?.platform_name ||
+                        item?.platformName ||
+                        item?.platform ||
+                        "";
+
+                    if (
+                        platformName &&
+                        !grouped[key].platforms.includes(
+                            platformName
+                        )
+                    ) {
+
+                        grouped[key].platforms.push(
+                            platformName
+                        );
+
+                    }
+
+                }
+            );
+
+
+            return Object.values(
+                grouped
+            );
+
+        }, [portfolio]);
+
 
     // =====================================================
     // TOTAL INVESTED
     // =====================================================
 
-    const totalInvested = useMemo(() => {
+    const totalInvested =
+        useMemo(() => {
 
-        return portfolio.reduce(
-            (total, item) =>
-                total +
-                Number(
-                    item.invested_amount || 0
-                ),
-            0
-        );
+            return groupedPortfolio.reduce(
+                (total, item) => {
 
-    }, [portfolio]);
-
-    // =====================================================
-    // CURRENT VALUE
-    // =====================================================
-
-    const currentPortfolioValue = useMemo(() => {
-
-        return portfolio.reduce(
-            (total, item) => {
-
-                const quantity =
-                    Number(
-                        item.quantity || 0
+                    return (
+                        total +
+                        Number(
+                            item?.invested_amount ||
+                            0
+                        )
                     );
 
-                const price =
-                    Number(
-                        item.current_price || 0
+                },
+                0
+            );
+
+        }, [groupedPortfolio]);
+
+
+    // =====================================================
+    // CURRENT PORTFOLIO VALUE
+    // =====================================================
+
+    const currentPortfolioValue =
+        useMemo(() => {
+
+            return groupedPortfolio.reduce(
+                (total, item) => {
+
+                    /*
+                     * current_value was already calculated
+                     * while grouping the portfolio.
+                     */
+
+                    return (
+                        total +
+                        Number(
+                            item?.current_value ||
+                            0
+                        )
                     );
 
-                return (
-                    total +
-                    quantity * price
-                );
+                },
+                0
+            );
 
-            },
-            0
-        );
+        }, [groupedPortfolio]);
 
-    }, [portfolio]);
 
     // =====================================================
     // PROFIT
@@ -291,190 +697,268 @@ function Dashboard() {
         currentPortfolioValue -
         totalInvested;
 
+
     const profitPercentage =
         totalInvested > 0
-            ? (profit / totalInvested) * 100
+            ? (
+                profit /
+                totalInvested
+            ) * 100
             : 0;
+
 
     // =====================================================
     // INVESTMENT DISTRIBUTION
     // =====================================================
 
-    const investmentData = useMemo(() => {
+    const investmentData =
+        useMemo(() => {
 
-        const grouped = {};
+            const grouped = {};
 
-        portfolio.forEach((item) => {
+            groupedPortfolio.forEach(
+                (item) => {
 
-            const type =
-                item.investment_type ||
-                "Other";
+                    const type =
+                        item?.investment_type ||
+                        item?.investmentType ||
+                        "Other";
 
-            const amount =
-                Number(
-                    item.invested_amount || 0
-                );
+                    const amount =
+                        Number(
+                            item?.invested_amount ||
+                            0
+                        );
 
-            grouped[type] =
-                (grouped[type] || 0) +
-                amount;
+                    grouped[type] =
+                        (
+                            grouped[type] ||
+                            0
+                        ) +
+                        amount;
 
-        });
-
-        return Object.entries(grouped).map(
-            ([name, amount]) => ({
-                name,
-                amount:
-                    Number(
-                        amount.toFixed(2)
-                    ),
-            })
-        );
-
-    }, [portfolio]);
-
-    // =====================================================
-    // ALLOCATION
-    // =====================================================
-
-    const allocationData = useMemo(() => {
-
-        const grouped = {};
-
-        portfolio.forEach((item) => {
-
-            const type =
-                item.investment_type ||
-                "Other";
-
-            const amount =
-                Number(
-                    item.invested_amount || 0
-                );
-
-            grouped[type] =
-                (grouped[type] || 0) +
-                amount;
-
-        });
-
-        const total =
-            Object.values(grouped).reduce(
-                (sum, value) =>
-                    sum + value,
-                0
+                }
             );
 
-        return Object.entries(grouped).map(
-            ([name, value]) => ({
-                name,
-                value:
-                    total > 0
-                        ? Number(
-                            (
-                                (value / total) *
-                                100
-                            ).toFixed(1)
-                        )
-                        : 0,
-            })
-        );
 
-    }, [portfolio]);
+            return Object.entries(
+                grouped
+            ).map(
+                ([name, amount]) => ({
+
+                    name,
+
+                    amount:
+                        Number(
+                            amount.toFixed(2)
+                        ),
+
+                })
+            );
+
+        }, [groupedPortfolio]);
+
 
     // =====================================================
-    // HISTORY
+    // ASSET ALLOCATION
     // =====================================================
 
-    const growthData = useMemo(() => {
+    const allocationData =
+        useMemo(() => {
 
-        const grouped = {};
+            const grouped = {};
 
-        portfolio.forEach((item) => {
+
+            groupedPortfolio.forEach(
+                (item) => {
+
+                    const type =
+                        item?.investment_type ||
+                        item?.investmentType ||
+                        "Other";
+
+                    const amount =
+                        Number(
+                            item?.invested_amount ||
+                            0
+                        );
+
+                    grouped[type] =
+                        (
+                            grouped[type] ||
+                            0
+                        ) +
+                        amount;
+
+                }
+            );
+
+
+            const total =
+                Object.values(
+                    grouped
+                ).reduce(
+                    (
+                        sum,
+                        value
+                    ) =>
+                        sum + value,
+                    0
+                );
+
+
+            return Object.entries(
+                grouped
+            ).map(
+                ([name, value]) => ({
+
+                    name,
+
+                    value:
+                        total > 0
+                            ? Number(
+                                (
+                                    (
+                                        value /
+                                        total
+                                    ) *
+                                    100
+                                ).toFixed(1)
+                            )
+                            : 0,
+
+                })
+            );
+
+        }, [groupedPortfolio]);
+
+
+    // =====================================================
+    // INVESTMENT HISTORY
+    // =====================================================
+
+    const growthData =
+        useMemo(() => {
+
+            const grouped = {};
+
+
+            groupedPortfolio.forEach(
+                (item) => {
+
+                    const date =
+                        item?.purchase_date
+                            ? new Date(
+                                item.purchase_date
+                            )
+                            : new Date();
+
+
+                    const key =
+                        date.toLocaleString(
+                            "en-IN",
+                            {
+                                month: "short",
+                            }
+                        );
+
+
+                    const amount =
+                        Number(
+                            item?.invested_amount ||
+                            0
+                        );
+
+
+                    grouped[key] =
+                        (
+                            grouped[key] ||
+                            0
+                        ) +
+                        amount;
+
+                }
+            );
+
+
+            return Object.entries(
+                grouped
+            ).map(
+                ([month, value]) => ({
+
+                    month,
+
+                    value:
+                        Number(
+                            value.toFixed(2)
+                        ),
+
+                })
+            );
+
+        }, [groupedPortfolio]);
+
+
+    // =====================================================
+    // FORMAT CURRENCY
+    // =====================================================
+
+    const formatCurrency =
+        (value) => {
+
+            return Number(
+                value || 0
+            ).toLocaleString(
+                "en-IN",
+                {
+                    maximumFractionDigits: 2,
+                }
+            );
+
+        };
+
+
+    // =====================================================
+    // FORMAT DATE
+    // =====================================================
+
+    const formatDate =
+        (value) => {
+
+            if (!value) {
+                return "-";
+            }
+
 
             const date =
-                item.purchase_date
-                    ? new Date(
-                        item.purchase_date
-                    )
-                    : new Date();
+                new Date(value);
 
-            const key =
-                date.toLocaleString(
-                    "en-IN",
-                    {
-                        month: "short",
-                    }
-                );
 
-            const amount =
-                Number(
-                    item.invested_amount || 0
-                );
+            if (
+                Number.isNaN(
+                    date.getTime()
+                )
+            ) {
 
-            grouped[key] =
-                (grouped[key] || 0) +
-                amount;
+                return "-";
 
-        });
-
-        return Object.entries(grouped).map(
-            ([month, value]) => ({
-                month,
-                value:
-                    Number(
-                        value.toFixed(2)
-                    ),
-            })
-        );
-
-    }, [portfolio]);
-
-    // =====================================================
-    // FORMAT
-    // =====================================================
-
-    const formatCurrency = (value) => {
-
-        return Number(
-            value || 0
-        ).toLocaleString(
-            "en-IN",
-            {
-                maximumFractionDigits: 2,
             }
-        );
 
-    };
 
-    const formatDate = (value) => {
+            return date.toLocaleDateString(
+                "en-IN",
+                {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                }
+            );
 
-        if (!value) return "-";
+        };
 
-        const date =
-            new Date(value);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "-";
-        }
-
-        return date.toLocaleDateString(
-            "en-IN",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            }
-        );
-
-    };
 
     // =====================================================
-    // PLATFORM
+    // PLATFORM DATA
     // =====================================================
 
     const platformData = [
@@ -506,13 +990,17 @@ function Dashboard() {
 
     ];
 
+
     const COLORS = [
+
         "#2563eb",
         "#7c3aed",
         "#10b981",
         "#f59e0b",
         "#ef4444",
+
     ];
+
 
     // =====================================================
     // RECENT TRANSACTIONS
@@ -522,18 +1010,35 @@ function Dashboard() {
         useMemo(() => {
 
             return [...transactions]
+
                 .sort(
-                    (a, b) =>
-                        new Date(
-                            b.transaction_date
-                        ) -
-                        new Date(
-                            a.transaction_date
-                        )
+                    (a, b) => {
+
+                        const dateA =
+                            new Date(
+                                a?.transaction_date ||
+                                a?.transactionDate ||
+                                a?.created_at ||
+                                0
+                            ).getTime();
+
+                        const dateB =
+                            new Date(
+                                b?.transaction_date ||
+                                b?.transactionDate ||
+                                b?.created_at ||
+                                0
+                            ).getTime();
+
+                        return dateB - dateA;
+
+                    }
                 )
+
                 .slice(0, 5);
 
         }, [transactions]);
+
 
     // =====================================================
     // MENU
@@ -564,6 +1069,47 @@ function Dashboard() {
         ["⚙️", "Settings", "/settings"],
 
     ];
+
+
+    // =====================================================
+    // LOGOUT
+    // =====================================================
+
+    const handleLogout =
+        () => {
+
+            const confirmLogout =
+                window.confirm(
+                    "Are you sure you want to logout?"
+                );
+
+
+            if (!confirmLogout) {
+                return;
+            }
+
+
+            localStorage.removeItem(
+                "token"
+            );
+
+            localStorage.removeItem(
+                "user"
+            );
+
+            localStorage.removeItem(
+                "userData"
+            );
+
+            localStorage.removeItem(
+                "userId"
+            );
+
+
+            navigate("/");
+
+        };
+
 
     // =====================================================
     // LOADING
@@ -597,6 +1143,7 @@ function Dashboard() {
 
     }
 
+
     // =====================================================
     // UI
     // =====================================================
@@ -605,9 +1152,10 @@ function Dashboard() {
 
         <div className="dashboard-page">
 
-            {/* ============================================
+
+            {/* =================================================
                 SIDEBAR
-            ============================================ */}
+            ================================================= */}
 
             <aside className="dashboard-sidebar">
 
@@ -620,10 +1168,13 @@ function Dashboard() {
                     <div>
 
                         <h1>
+
                             <span>
                                 Invest
                             </span>
+
                             AI
+
                         </h1>
 
                         <p>
@@ -634,9 +1185,11 @@ function Dashboard() {
 
                 </div>
 
+
                 <div className="sidebar-section">
                     MAIN MENU
                 </div>
+
 
                 <nav className="sidebar-menu">
 
@@ -649,7 +1202,8 @@ function Dashboard() {
                                     navigate(path)
                                 }
                                 className={
-                                    path === "/dashboard"
+                                    path ===
+                                    "/dashboard"
                                         ? "sidebar-item active"
                                         : "sidebar-item"
                                 }
@@ -670,38 +1224,14 @@ function Dashboard() {
 
                 </nav>
 
+
                 <div className="sidebar-bottom">
 
                     <button
                         className="sidebar-item logout"
-                        onClick={() => {
-
-                            const confirmLogout =
-                                window.confirm(
-                                    "Are you sure you want to logout?"
-                                );
-
-                            if (
-                                confirmLogout
-                            ) {
-
-                                localStorage.removeItem(
-                                    "user"
-                                );
-
-                                localStorage.removeItem(
-                                    "userData"
-                                );
-
-                                localStorage.removeItem(
-                                    "userId"
-                                );
-
-                                navigate("/");
-
-                            }
-
-                        }}
+                        onClick={
+                            handleLogout
+                        }
                     >
 
                         <span className="menu-icon">
@@ -716,11 +1246,13 @@ function Dashboard() {
 
             </aside>
 
-            {/* ============================================
-                MAIN CONTENT
-            ============================================ */}
+
+            {/* =================================================
+                MAIN
+            ================================================= */}
 
             <main className="dashboard-main">
+
 
                 {/* HEADER */}
 
@@ -743,6 +1275,7 @@ function Dashboard() {
 
                     </div>
 
+
                     <div className="header-actions">
 
                         <button
@@ -754,11 +1287,15 @@ function Dashboard() {
                                 refreshing
                             }
                         >
+
                             🔄{" "}
+
                             {refreshing
                                 ? "Refreshing..."
                                 : "Refresh"}
+
                         </button>
+
 
                         <button
                             className="ai-header-button"
@@ -768,12 +1305,15 @@ function Dashboard() {
                                 )
                             }
                         >
+
                             🤖 Ask AI
+
                         </button>
 
                     </div>
 
                 </header>
+
 
                 {/* ERROR */}
 
@@ -795,9 +1335,10 @@ function Dashboard() {
 
                 )}
 
-                {/* ==========================================
+
+                {/* =================================================
                     HERO
-                ========================================== */}
+                ================================================= */}
 
                 <section className="dashboard-hero">
 
@@ -808,16 +1349,21 @@ function Dashboard() {
                         </span>
 
                         <h1>
+
                             Build wealth.
                             <br />
                             Invest smarter. 🚀
+
                         </h1>
 
                         <p>
+
                             InvestAI helps you monitor your
                             portfolio, discover opportunities
                             and make smarter investment decisions.
+
                         </p>
+
 
                         <div className="hero-buttons">
 
@@ -831,6 +1377,7 @@ function Dashboard() {
                             >
                                 📈 Start Investing
                             </button>
+
 
                             <button
                                 onClick={() =>
@@ -846,6 +1393,7 @@ function Dashboard() {
                         </div>
 
                     </div>
+
 
                     <div className="hero-visual">
 
@@ -871,11 +1419,13 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     SUMMARY
-                ========================================== */}
+                ================================================= */}
 
                 <section className="summary-grid">
+
 
                     {/* WALLET */}
 
@@ -890,19 +1440,23 @@ function Dashboard() {
                                 </span>
 
                                 <h3>
+
                                     ₹
                                     {formatCurrency(
                                         wallet?.balance
                                     )}
+
                                 </h3>
 
                             </div>
+
 
                             <div className="summary-icon green">
                                 💰
                             </div>
 
                         </div>
+
 
                         <button
                             onClick={() =>
@@ -915,6 +1469,7 @@ function Dashboard() {
                         </button>
 
                     </div>
+
 
                     {/* PORTFOLIO */}
 
@@ -929,19 +1484,23 @@ function Dashboard() {
                                 </span>
 
                                 <h3>
+
                                     ₹
                                     {formatCurrency(
                                         currentPortfolioValue
                                     )}
+
                                 </h3>
 
                             </div>
+
 
                             <div className="summary-icon blue">
                                 📊
                             </div>
 
                         </div>
+
 
                         <p
                             className={
@@ -950,16 +1509,21 @@ function Dashboard() {
                                     : "negative"
                             }
                         >
+
                             {profit >= 0
                                 ? "↑"
                                 : "↓"}{" "}
+
                             {Math.abs(
                                 profitPercentage
                             ).toFixed(2)}
+
                             % overall
+
                         </p>
 
                     </div>
+
 
                     {/* SIP */}
 
@@ -974,16 +1538,32 @@ function Dashboard() {
                                 </span>
 
                                 <h3>
-                                    {sipPlans.length}
+                                    {
+                                        activeSipPlans.length
+                                    }
                                 </h3>
 
                             </div>
+
 
                             <div className="summary-icon purple">
                                 🔄
                             </div>
 
                         </div>
+
+
+                        <p>
+
+                            ₹
+                            {formatCurrency(
+                                monthlySipAmount
+                            )}
+
+                            / month
+
+                        </p>
+
 
                         <button
                             onClick={() =>
@@ -996,6 +1576,7 @@ function Dashboard() {
                         </button>
 
                     </div>
+
 
                     {/* AI */}
 
@@ -1015,11 +1596,13 @@ function Dashboard() {
 
                             </div>
 
+
                             <div className="summary-icon yellow">
                                 ⭐
                             </div>
 
                         </div>
+
 
                         <p className="positive">
                             Excellent health
@@ -1029,9 +1612,10 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     QUICK ACTIONS
-                ========================================== */}
+                ================================================= */}
 
                 <section className="quick-section">
 
@@ -1051,7 +1635,9 @@ function Dashboard() {
 
                     </div>
 
+
                     <div className="quick-grid">
+
 
                         <button
                             className="quick-card buy"
@@ -1085,6 +1671,7 @@ function Dashboard() {
 
                         </button>
 
+
                         <button
                             className="quick-card sell"
                             onClick={() =>
@@ -1116,6 +1703,7 @@ function Dashboard() {
 
                         </button>
 
+
                         <button
                             className="quick-card sip"
                             onClick={() =>
@@ -1146,6 +1734,7 @@ function Dashboard() {
                             </strong>
 
                         </button>
+
 
                         <button
                             className="quick-card ai"
@@ -1182,11 +1771,13 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     CHARTS
-                ========================================== */}
+                ================================================= */}
 
                 <section className="chart-grid">
+
 
                     {/* DISTRIBUTION */}
 
@@ -1206,6 +1797,7 @@ function Dashboard() {
 
                             </div>
 
+
                             <button
                                 onClick={() =>
                                     navigate(
@@ -1217,6 +1809,7 @@ function Dashboard() {
                             </button>
 
                         </div>
+
 
                         {investmentData.length > 0 ? (
 
@@ -1265,15 +1858,19 @@ function Dashboard() {
                         ) : (
 
                             <div className="chart-empty">
+
                                 📊
+
                                 <p>
                                     No investment data yet
                                 </p>
+
                             </div>
 
                         )}
 
                     </div>
+
 
                     {/* HISTORY */}
 
@@ -1294,6 +1891,7 @@ function Dashboard() {
                             </div>
 
                         </div>
+
 
                         {growthData.length > 0 ? (
 
@@ -1341,10 +1939,13 @@ function Dashboard() {
                         ) : (
 
                             <div className="chart-empty">
+
                                 📈
+
                                 <p>
                                     Start investing to see growth
                                 </p>
+
                             </div>
 
                         )}
@@ -1353,11 +1954,13 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     ALLOCATION + HEALTH
-                ========================================== */}
+                ================================================= */}
 
                 <section className="lower-grid">
+
 
                     {/* ALLOCATION */}
 
@@ -1378,6 +1981,7 @@ function Dashboard() {
                             </div>
 
                         </div>
+
 
                         {allocationData.length > 0 ? (
 
@@ -1419,8 +2023,8 @@ function Dashboard() {
                                                     }
                                                     fill={
                                                         COLORS[
-                                                        index %
-                                                        COLORS.length
+                                                            index %
+                                                            COLORS.length
                                                         ]
                                                     }
                                                 />
@@ -1439,17 +2043,21 @@ function Dashboard() {
                         ) : (
 
                             <div className="chart-empty">
+
                                 🥧
+
                                 <p>
                                     No allocation data
                                 </p>
+
                             </div>
 
                         )}
 
                     </div>
 
-                    {/* INVESTMENT HEALTH */}
+
+                    {/* HEALTH */}
 
                     <div className="dashboard-panel health-panel">
 
@@ -1473,6 +2081,7 @@ function Dashboard() {
 
                         </div>
 
+
                         <div className="health-progress">
 
                             <div
@@ -1482,6 +2091,7 @@ function Dashboard() {
                             />
 
                         </div>
+
 
                         <div className="health-status">
 
@@ -1495,9 +2105,11 @@ function Dashboard() {
 
                         </div>
 
+
                         <div className="health-list">
 
                             <div>
+
                                 <span>
                                     🟢 Diversification
                                 </span>
@@ -1505,9 +2117,12 @@ function Dashboard() {
                                 <strong>
                                     Good
                                 </strong>
+
                             </div>
 
+
                             <div>
+
                                 <span>
                                     🟢 Risk Level
                                 </span>
@@ -1515,29 +2130,41 @@ function Dashboard() {
                                 <strong>
                                     Balanced
                                 </strong>
+
                             </div>
 
+
                             <div>
+
                                 <span>
                                     🟢 SIP Discipline
                                 </span>
 
                                 <strong>
-                                    Excellent
+                                    {activeSipPlans.length > 0
+                                        ? "Excellent"
+                                        : "Not Active"}
                                 </strong>
+
                             </div>
 
+
                             <div>
+
                                 <span>
                                     🟡 Portfolio Growth
                                 </span>
 
                                 <strong>
-                                    Moderate
+                                    {profit > 0
+                                        ? "Positive"
+                                        : "Moderate"}
                                 </strong>
+
                             </div>
 
                         </div>
+
 
                         <button
                             onClick={() =>
@@ -1547,18 +2174,22 @@ function Dashboard() {
                             }
                             className="health-button"
                         >
+
                             🤖 Get AI Recommendations
+
                         </button>
 
                     </div>
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     HOLDINGS + TRANSACTIONS
-                ========================================== */}
+                ================================================= */}
 
                 <section className="lower-grid">
+
 
                     {/* HOLDINGS */}
 
@@ -1578,6 +2209,7 @@ function Dashboard() {
 
                             </div>
 
+
                             <button
                                 onClick={() =>
                                     navigate(
@@ -1590,11 +2222,12 @@ function Dashboard() {
 
                         </div>
 
-                        {portfolio.length > 0 ? (
+
+                        {groupedPortfolio.length > 0 ? (
 
                             <div className="holdings-list">
 
-                                {portfolio
+                                {groupedPortfolio
                                     .slice(0, 5)
                                     .map(
                                         (
@@ -1603,23 +2236,19 @@ function Dashboard() {
 
                                             const quantity =
                                                 Number(
-                                                    item.quantity ||
-                                                    0
-                                                );
-
-                                            const price =
-                                                Number(
-                                                    item.current_price ||
+                                                    item?.quantity ||
                                                     0
                                                 );
 
                                             const value =
-                                                quantity *
-                                                price;
+                                                Number(
+                                                    item?.current_value ||
+                                                    0
+                                                );
 
                                             const invested =
                                                 Number(
-                                                    item.invested_amount ||
+                                                    item?.invested_amount ||
                                                     0
                                                 );
 
@@ -1627,12 +2256,13 @@ function Dashboard() {
                                                 value -
                                                 invested;
 
+
                                             return (
 
                                                 <div
                                                     className="holding-row"
                                                     key={
-                                                        item.portfolio_id
+                                                        `holding_${item?.investment_id || item?.investment_name}`
                                                     }
                                                 >
 
@@ -1640,54 +2270,69 @@ function Dashboard() {
                                                         📊
                                                     </div>
 
+
                                                     <div className="holding-info">
 
                                                         <strong>
                                                             {
-                                                                item.investment_name ||
+                                                                item?.investment_name ||
+                                                                item?.investmentName ||
                                                                 "Investment"
                                                             }
                                                         </strong>
 
                                                         <span>
+
                                                             {
-                                                                item.investment_type ||
+                                                                item?.investment_type ||
+                                                                item?.investmentType ||
                                                                 "Asset"
                                                             }
+
                                                             {" • "}
+
                                                             Qty:{" "}
-                                                            {quantity}
+
+                                                            {
+                                                                quantity
+                                                            }
+
                                                         </span>
 
                                                     </div>
 
+
                                                     <div className="holding-value">
 
                                                         <strong>
+
                                                             ₹
                                                             {formatCurrency(
                                                                 value
                                                             )}
+
                                                         </strong>
+
 
                                                         <span
                                                             className={
-                                                                itemProfit >=
-                                                                    0
+                                                                itemProfit >= 0
                                                                     ? "positive"
                                                                     : "negative"
                                                             }
                                                         >
-                                                            {itemProfit >=
-                                                                0
+
+                                                            {itemProfit >= 0
                                                                 ? "+"
                                                                 : "-"}
+
                                                             ₹
                                                             {formatCurrency(
                                                                 Math.abs(
                                                                     itemProfit
                                                                 )
                                                             )}
+
                                                         </span>
 
                                                     </div>
@@ -1704,7 +2349,9 @@ function Dashboard() {
                         ) : (
 
                             <div className="empty-box">
+
                                 💼
+
                                 <p>
                                     Your holdings will appear here.
                                 </p>
@@ -1725,6 +2372,7 @@ function Dashboard() {
 
                     </div>
 
+
                     {/* TRANSACTIONS */}
 
                     <div className="dashboard-panel">
@@ -1743,6 +2391,7 @@ function Dashboard() {
 
                             </div>
 
+
                             <button
                                 onClick={() =>
                                     navigate(
@@ -1755,67 +2404,94 @@ function Dashboard() {
 
                         </div>
 
-                        {recentTransactions.length >
-                            0 ? (
+
+                        {recentTransactions.length > 0 ? (
 
                             <div className="transactions-list">
 
                                 {recentTransactions.map(
                                     (
-                                        transaction
+                                        transaction,
+                                        index
                                     ) => {
 
                                         const type =
                                             String(
-                                                transaction.transaction_type ||
+                                                transaction?.transaction_type ||
+                                                transaction?.transactionType ||
                                                 ""
                                             ).toUpperCase();
+
+
+                                        const transactionKey =
+                                            transaction?.transaction_id ||
+                                            transaction?.id ||
+                                            `${type}_${transaction?.transaction_date}_${index}`;
+
 
                                         return (
 
                                             <div
                                                 className="transaction-row"
                                                 key={
-                                                    transaction.transaction_id
+                                                    transactionKey
                                                 }
                                             >
 
                                                 <div
                                                     className={`transaction-type ${type.toLowerCase()}`}
                                                 >
+
                                                     {type ===
-                                                        "BUY"
+                                                    "BUY"
                                                         ? "↗"
                                                         : type ===
-                                                            "SELL"
-                                                            ? "↘"
-                                                            : "🔄"}
+                                                          "SELL"
+                                                        ? "↘"
+                                                        : "🔄"}
+
                                                 </div>
+
 
                                                 <div className="transaction-info">
 
                                                     <strong>
                                                         {
-                                                            transaction.investment_name ||
+                                                            transaction?.investment_name ||
+                                                            transaction?.investmentName ||
                                                             "Investment"
                                                         }
                                                     </strong>
 
+
                                                     <span>
-                                                        {type}
+
+                                                        {type ||
+                                                            "TRANSACTION"}
+
                                                         {" • "}
-                                                        {formatDate(
-                                                            transaction.transaction_date
-                                                        )}
+
+                                                        {
+                                                            formatDate(
+                                                                transaction?.transaction_date ||
+                                                                transaction?.transactionDate ||
+                                                                transaction?.created_at
+                                                            )
+                                                        }
+
                                                     </span>
 
                                                 </div>
 
+
                                                 <strong>
+
                                                     ₹
                                                     {formatCurrency(
-                                                        transaction.amount
+                                                        transaction?.amount ||
+                                                        0
                                                     )}
+
                                                 </strong>
 
                                             </div>
@@ -1830,10 +2506,13 @@ function Dashboard() {
                         ) : (
 
                             <div className="empty-box">
+
                                 🔄
+
                                 <p>
                                     No transactions yet.
                                 </p>
+
                             </div>
 
                         )}
@@ -1842,9 +2521,10 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     PLATFORM RANKING
-                ========================================== */}
+                ================================================= */}
 
                 <section className="dashboard-panel platform-panel">
 
@@ -1862,6 +2542,7 @@ function Dashboard() {
 
                         </div>
 
+
                         <button
                             onClick={() =>
                                 navigate(
@@ -1873,6 +2554,7 @@ function Dashboard() {
                         </button>
 
                     </div>
+
 
                     <div className="platform-list">
 
@@ -1893,18 +2575,22 @@ function Dashboard() {
                                         #{index + 1}
                                     </div>
 
+
                                     <div className="platform-name">
+
                                         <strong>
                                             {
                                                 platform.name
                                             }
                                         </strong>
 
+
                                         <div className="platform-progress">
 
                                             <div
                                                 style={{
-                                                    width: `${platform.score}%`,
+                                                    width:
+                                                        `${platform.score}%`,
                                                 }}
                                             />
 
@@ -1912,11 +2598,14 @@ function Dashboard() {
 
                                     </div>
 
+
                                     <strong className="platform-score">
+
                                         {
                                             platform.score
                                         }
                                         /100
+
                                     </strong>
 
                                 </div>
@@ -1928,9 +2617,10 @@ function Dashboard() {
 
                 </section>
 
-                {/* ==========================================
+
+                {/* =================================================
                     AI INSIGHT
-                ========================================== */}
+                ================================================= */}
 
                 <section className="ai-insight">
 
@@ -1938,38 +2628,52 @@ function Dashboard() {
                         🤖
                     </div>
 
+
                     <div className="ai-content">
 
                         <span>
                             INVESTAI AI INSIGHT
                         </span>
 
+
                         <h2>
                             Your portfolio is being
                             monitored by InvestAI
                         </h2>
 
+
                         <p>
+
                             You currently have{" "}
+
                             <strong>
                                 ₹
                                 {formatCurrency(
                                     totalInvested
                                 )}
                             </strong>{" "}
+
                             invested across{" "}
+
                             <strong>
-                                {portfolio.length}
+                                {
+                                    groupedPortfolio.length
+                                }
                             </strong>{" "}
+
                             investment
-                            {portfolio.length !==
+                            {
+                                groupedPortfolio.length !==
                                 1
-                                ? "s"
-                                : ""}
+                                    ? "s"
+                                    : ""
+                            }
                             .
+
                         </p>
 
                     </div>
+
 
                     <button
                         onClick={() =>
@@ -1978,23 +2682,30 @@ function Dashboard() {
                             )
                         }
                     >
+
                         Get Personalized Advice →
+
                     </button>
 
                 </section>
+
 
                 {/* FOOTER */}
 
                 <footer className="dashboard-footer">
 
                     © 2026 InvestAI
+
                     <span>
                         •
                     </span>
+
                     Smart Investing with AI
+
                     <span>
                         •
                     </span>
+
                     Build wealth responsibly 🚀
 
                 </footer>

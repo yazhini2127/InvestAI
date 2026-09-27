@@ -1,34 +1,46 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import api from "../services/api";
 import "./BuySell.css";
 
 function BuySell() {
-   const storedUser = localStorage.getItem("user");
-const user = storedUser ? JSON.parse(storedUser) : null;
-const userId = user?.id;
-
     const [investments, setInvestments] = useState([]);
-    const [selectedInvestment, setSelectedInvestment] = useState("");
+    const [platforms, setPlatforms] = useState([]);
+
+    const [selectedInvestment, setSelectedInvestment] =
+        useState("");
+
+    const [selectedPlatform, setSelectedPlatform] =
+        useState("");
 
     const [quantity, setQuantity] = useState("");
     const [action, setAction] = useState("BUY");
 
     const [walletBalance, setWalletBalance] = useState(0);
-    const [portfolioQuantity, setPortfolioQuantity] = useState(0);
+    const [portfolioQuantity, setPortfolioQuantity] =
+        useState(0);
 
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
     // =====================================================
     // FORMAT CURRENCY
     // =====================================================
 
     const formatCurrency = (amount) => {
-        return Number(amount || 0).toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
+        return Number(amount || 0).toLocaleString(
+            "en-IN",
+            {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }
+        );
     };
 
     // =====================================================
@@ -42,14 +54,52 @@ const userId = user?.id;
 
         return Number(
             investment.current_price ??
-            investment.currentPrice ??
-            investment.price ??
-            investment.market_price ??
-            investment.marketPrice ??
-            investment.share_price ??
-            investment.amount ??
-            0
+                investment.currentPrice ??
+                investment.price ??
+                investment.market_price ??
+                investment.marketPrice ??
+                investment.share_price ??
+                investment.amount ??
+                0
         );
+    };
+
+    // =====================================================
+    // GET ARRAY DATA
+    // =====================================================
+
+    const getArrayData = (response) => {
+        const body = response?.data;
+
+        if (!body) {
+            return [];
+        }
+
+        if (Array.isArray(body)) {
+            return body;
+        }
+
+        if (Array.isArray(body.data)) {
+            return body.data;
+        }
+
+        if (Array.isArray(body.investments)) {
+            return body.investments;
+        }
+
+        if (Array.isArray(body.platforms)) {
+            return body.platforms;
+        }
+
+        if (Array.isArray(body.rows)) {
+            return body.rows;
+        }
+
+        if (Array.isArray(body.result)) {
+            return body.result;
+        }
+
+        return [];
     };
 
     // =====================================================
@@ -58,31 +108,80 @@ const userId = user?.id;
 
     const loadInvestments = useCallback(async () => {
         try {
-            const response = await api.get("/investments");
+            const response =
+                await api.get("/investments");
 
-            console.log("Investments API:", response.data);
+            console.log(
+                "📊 Investments:",
+                response.data
+            );
 
-            if (response.data.success) {
-                const data =
-                    response.data.data ||
-                    response.data.investments ||
-                    [];
-
-                setInvestments(
-                    Array.isArray(data) ? data : []
-                );
-            } else {
-                setError(
-                    response.data.message ||
-                    "Failed to load investments"
+            if (response.data?.success === false) {
+                throw new Error(
+                    response.data?.message ||
+                        "Failed to load investments"
                 );
             }
+
+            const data = getArrayData(response);
+
+            setInvestments(
+                Array.isArray(data) ? data : []
+            );
         } catch (err) {
-            console.error("Investment Error:", err);
+            console.error(
+                "❌ Investment Error:",
+                err
+            );
+
+            setInvestments([]);
 
             setError(
                 err.response?.data?.message ||
-                "Failed to load investments"
+                    err.message ||
+                    "Failed to load investments"
+            );
+        }
+    }, []);
+
+    // =====================================================
+    // LOAD PLATFORMS
+    // =====================================================
+
+    const loadPlatforms = useCallback(async () => {
+        try {
+            const response =
+                await api.get("/platforms");
+
+            console.log(
+                "🏦 Platforms:",
+                response.data
+            );
+
+            if (response.data?.success === false) {
+                throw new Error(
+                    response.data?.message ||
+                        "Failed to load platforms"
+                );
+            }
+
+            const data = getArrayData(response);
+
+            setPlatforms(
+                Array.isArray(data) ? data : []
+            );
+        } catch (err) {
+            console.error(
+                "❌ Platform Error:",
+                err
+            );
+
+            setPlatforms([]);
+
+            setError(
+                err.response?.data?.message ||
+                    err.message ||
+                    "Failed to load platforms"
             );
         }
     }, []);
@@ -93,106 +192,174 @@ const userId = user?.id;
 
     const loadWallet = useCallback(async () => {
         try {
-            const response = await api.get(
-                `/wallet/${userId}`
+            const response =
+                await api.get("/wallet");
+
+            console.log(
+                "💰 Wallet:",
+                response.data
             );
 
-            console.log("Wallet API:", response.data);
+            if (response.data?.success === false) {
+                throw new Error(
+                    response.data?.message ||
+                        "Failed to load wallet"
+                );
+            }
 
-            if (response.data.success) {
-                const wallet =
-                    response.data.data ||
-                    response.data.wallet ||
-                    {};
+            const wallet =
+                response.data?.data ||
+                response.data?.wallet ||
+                response.data?.result ||
+                {};
 
-                const balance = Number(
-                    wallet.balance ??
+            const balance = Number(
+                wallet.balance ??
                     wallet.wallet_balance ??
                     wallet.amount ??
                     wallet.available_balance ??
                     0
-                );
+            );
 
-                setWalletBalance(balance);
-            } else {
-                setWalletBalance(0);
-            }
+            setWalletBalance(
+                Number.isFinite(balance)
+                    ? balance
+                    : 0
+            );
         } catch (err) {
-            console.error("Wallet Error:", err);
+            console.error(
+                "❌ Wallet Error:",
+                err
+            );
+
             setWalletBalance(0);
+
+            setError(
+                err.response?.data?.message ||
+                    err.message ||
+                    "Failed to load wallet"
+            );
         }
-    }, [userId]);
+    }, []);
 
     // =====================================================
-    // LOAD PORTFOLIO QUANTITY
+    // LOAD PLATFORM-WISE PORTFOLIO QUANTITY
     // =====================================================
 
     const loadPortfolioQuantity = useCallback(
-        async (investmentId) => {
-            if (!investmentId) {
+        async (
+            investmentId,
+            platformId
+        ) => {
+            if (
+                !investmentId ||
+                !platformId
+            ) {
                 setPortfolioQuantity(0);
                 return;
             }
 
             try {
-                // IMPORTANT:
-                // PortfolioRoutes.js has router.get("/:userId")
-                // Therefore correct URL is /portfolio/2
-
-                const response = await api.get(
-                    `/portfolio/${userId}`
-                );
+                const response =
+                    await api.get("/portfolio");
 
                 console.log(
-                    "Portfolio API:",
+                    "📦 Portfolio:",
                     response.data
                 );
 
-                if (response.data.success) {
-                    const data =
-                        response.data.data ||
-                        response.data.portfolio ||
-                        [];
+                const rawData =
+                    response.data?.data ??
+                    response.data?.portfolio ??
+                    response.data?.result ??
+                    response.data;
 
-                    const portfolioList =
-                        Array.isArray(data)
-                            ? data
-                            : [data];
+                let portfolioList = [];
 
-                    const item =
-                        portfolioList.find(
-                            (portfolio) =>
-                                Number(
-                                    portfolio.investment_id
-                                ) ===
-                                Number(investmentId)
-                        );
-
-                    const ownedQuantity = Number(
-                        item?.quantity || 0
-                    );
-
-                    console.log(
-                        "Owned Quantity:",
-                        ownedQuantity
-                    );
-
-                    setPortfolioQuantity(
-                        ownedQuantity
-                    );
-                } else {
-                    setPortfolioQuantity(0);
+                if (Array.isArray(rawData)) {
+                    portfolioList = rawData;
+                } else if (
+                    Array.isArray(
+                        rawData?.data
+                    )
+                ) {
+                    portfolioList =
+                        rawData.data;
+                } else if (
+                    Array.isArray(
+                        rawData?.portfolio
+                    )
+                ) {
+                    portfolioList =
+                        rawData.portfolio;
                 }
+
+                const matchingItems =
+                    portfolioList.filter(
+                        (item) => {
+                            const itemInvestmentId =
+                                Number(
+                                    item?.investment_id ??
+                                        item?.investmentId ??
+                                        item?.investment
+                                            ?.investment_id ??
+                                        item?.investment
+                                            ?.id ??
+                                        0
+                                );
+
+                            const itemPlatformId =
+                                Number(
+                                    item?.platform_id ??
+                                        item?.platformId ??
+                                        item?.platform
+                                            ?.platform_id ??
+                                        item?.platform
+                                            ?.id ??
+                                        0
+                                );
+
+                            return (
+                                itemInvestmentId ===
+                                    Number(
+                                        investmentId
+                                    ) &&
+                                itemPlatformId ===
+                                    Number(
+                                        platformId
+                                    )
+                            );
+                        }
+                    );
+
+                const ownedQuantity =
+                    matchingItems.reduce(
+                        (total, item) =>
+                            total +
+                            Number(
+                                item?.quantity ||
+                                    0
+                            ),
+                        0
+                    );
+
+                setPortfolioQuantity(
+                    Number.isFinite(
+                        ownedQuantity
+                    )
+                        ? ownedQuantity
+                        : 0
+                );
             } catch (err) {
                 console.error(
-                    "Portfolio Error:",
+                    "❌ Portfolio Quantity Error:",
                     err
                 );
 
                 setPortfolioQuantity(0);
             }
         },
-        [userId]
+        []
     );
 
     // =====================================================
@@ -200,67 +367,63 @@ const userId = user?.id;
     // =====================================================
 
     useEffect(() => {
-        let mounted = true;
+        const timer = setTimeout(
+            async () => {
+                setPageLoading(true);
+                setError("");
 
-        const fetchInitialData = async () => {
-            try {
-                if (mounted) {
-                    setPageLoading(true);
-                    setError("");
-                }
-
-                await Promise.all([
+                await Promise.allSettled([
                     loadInvestments(),
+                    loadPlatforms(),
                     loadWallet(),
                 ]);
-            } catch (err) {
-                console.error(
-                    "Initial Load Error:",
-                    err
-                );
-            } finally {
-                if (mounted) {
-                    setPageLoading(false);
-                }
-            }
-        };
 
-        fetchInitialData();
+                setPageLoading(false);
+            },
+            0
+        );
 
-        return () => {
-            mounted = false;
-        };
-    }, [loadInvestments, loadWallet]);
+        return () =>
+            clearTimeout(timer);
+    }, [
+        loadInvestments,
+        loadPlatforms,
+        loadWallet,
+    ]);
 
     // =====================================================
     // REFRESH
     // =====================================================
 
     const handleRefresh = async () => {
-        try {
-            setError("");
-            setPageLoading(true);
+        setError("");
+        setSuccess("");
+        setPageLoading(true);
 
+        try {
             await Promise.all([
                 loadInvestments(),
+                loadPlatforms(),
                 loadWallet(),
             ]);
 
             if (
-                selectedInvestment
+                selectedInvestment &&
+                selectedPlatform
             ) {
                 await loadPortfolioQuantity(
-                    selectedInvestment
+                    selectedInvestment,
+                    selectedPlatform
                 );
             }
         } catch (err) {
             console.error(
-                "Refresh Error:",
+                "❌ Refresh Error:",
                 err
             );
 
             setError(
-                "Failed to refresh data"
+                "Failed to refresh trading data"
             );
         } finally {
             setPageLoading(false);
@@ -271,212 +434,326 @@ const userId = user?.id;
     // SELECTED INVESTMENT
     // =====================================================
 
-    const selected = investments.find(
-        (investment) =>
-            Number(
-                investment.investment_id ??
-                investment.id
-            ) ===
-            Number(selectedInvestment)
-    );
+    const selected = useMemo(() => {
+        return investments.find(
+            (investment) =>
+                Number(
+                    investment?.investment_id ??
+                        investment?.id
+                ) ===
+                Number(selectedInvestment)
+        );
+    }, [
+        investments,
+        selectedInvestment,
+    ]);
+
+    // =====================================================
+    // SELECTED PLATFORM
+    // =====================================================
+
+    const selectedPlatformData =
+        useMemo(() => {
+            return platforms.find(
+                (platform) =>
+                    Number(
+                        platform?.platform_id ??
+                            platform?.id
+                    ) ===
+                    Number(selectedPlatform)
+            );
+        }, [
+            platforms,
+            selectedPlatform,
+        ]);
+
+    // =====================================================
+    // CURRENT PRICE
+    // =====================================================
 
     const currentPrice =
         getInvestmentPrice(selected);
 
-    const enteredQuantity = Number(
-        quantity || 0
-    );
+    // =====================================================
+    // QUANTITY
+    // =====================================================
+
+    const enteredQuantity =
+        Number(quantity || 0);
+
+    // =====================================================
+    // TOTAL AMOUNT
+    // =====================================================
 
     const totalAmount =
         currentPrice *
         enteredQuantity;
 
     // =====================================================
+    // AFTER TRADE BALANCE
+    // =====================================================
+
+    const afterTradeBalance =
+        action === "BUY"
+            ? walletBalance - totalAmount
+            : walletBalance + totalAmount;
+
+    // =====================================================
+    // BUY VALIDATION
+    // =====================================================
+
+    const insufficientBalance =
+        action === "BUY" &&
+        totalAmount > walletBalance;
+
+    // =====================================================
+    // SELL VALIDATION
+    // =====================================================
+
+    const insufficientHoldings =
+        action === "SELL" &&
+        enteredQuantity >
+            portfolioQuantity;
+
+    // =====================================================
+    // VALID QUANTITY
+    // =====================================================
+
+    const invalidQuantity =
+        !quantity ||
+        enteredQuantity <= 0 ||
+        !Number.isInteger(
+            enteredQuantity
+        );
+
+    // =====================================================
     // INVESTMENT CHANGE
     // =====================================================
 
-    const handleInvestmentChange = async (
-        event
-    ) => {
-        const investmentId =
-            event.target.value;
+    const handleInvestmentChange =
+        async (event) => {
+            const investmentId =
+                event.target.value;
 
-        setSelectedInvestment(
-            investmentId
-        );
-
-        setQuantity("");
-        setError("");
-
-        if (investmentId) {
-            await loadPortfolioQuantity(
+            setSelectedInvestment(
                 investmentId
             );
-        } else {
+
+            setQuantity("");
             setPortfolioQuantity(0);
-        }
-    };
+            setError("");
+            setSuccess("");
+
+            if (
+                investmentId &&
+                selectedPlatform
+            ) {
+                await loadPortfolioQuantity(
+                    investmentId,
+                    selectedPlatform
+                );
+            }
+        };
 
     // =====================================================
-    // BUY / SELL TAB
+    // PLATFORM CHANGE
     // =====================================================
 
-    const handleActionChange = async (
-        newAction
-    ) => {
-        setAction(newAction);
-        setQuantity("");
-        setError("");
+    const handlePlatformChange =
+        async (event) => {
+            const platformId =
+                event.target.value;
 
-        if (
-            selectedInvestment
-        ) {
-            await loadPortfolioQuantity(
-                selectedInvestment
+            setSelectedPlatform(
+                platformId
             );
-        } else {
+
+            setQuantity("");
             setPortfolioQuantity(0);
-        }
-    };
+            setError("");
+            setSuccess("");
+
+            if (
+                platformId &&
+                selectedInvestment
+            ) {
+                await loadPortfolioQuantity(
+                    selectedInvestment,
+                    platformId
+                );
+            }
+        };
+
+    // =====================================================
+    // BUY / SELL CHANGE
+    // =====================================================
+
+    const handleActionChange =
+        async (newAction) => {
+            setAction(newAction);
+            setQuantity("");
+            setError("");
+            setSuccess("");
+
+            if (
+                selectedInvestment &&
+                selectedPlatform
+            ) {
+                await loadPortfolioQuantity(
+                    selectedInvestment,
+                    selectedPlatform
+                );
+            } else {
+                setPortfolioQuantity(0);
+            }
+        };
 
     // =====================================================
     // TRANSACTION
     // =====================================================
 
-    const handleTransaction = async () => {
-        setError("");
+    const handleTransaction =
+        async () => {
+            setError("");
+            setSuccess("");
 
-        if (!selectedInvestment) {
-            alert(
-                "⚠️ Please select an investment."
-            );
-            return;
-        }
+            if (!selectedPlatform) {
+                setError(
+                    "Please select an investment platform."
+                );
+                return;
+            }
 
-        if (
-            !quantity ||
-            Number(quantity) <= 0
-        ) {
-            alert(
-                "⚠️ Please enter a valid quantity."
-            );
-            return;
-        }
+            if (!selectedInvestment) {
+                setError(
+                    "Please select an investment."
+                );
+                return;
+            }
 
-        if (!selected) {
-            alert(
-                "❌ Investment not found."
-            );
-            return;
-        }
+            if (invalidQuantity) {
+                setError(
+                    "Quantity must be a positive whole number."
+                );
+                return;
+            }
 
-        if (currentPrice <= 0) {
-            alert(
-                "❌ Current investment price is not available."
-            );
-            return;
-        }
+            if (!selected) {
+                setError(
+                    "Investment not found."
+                );
+                return;
+            }
 
-        // BUY CHECK
-        if (
-            action === "BUY" &&
-            totalAmount > walletBalance
-        ) {
-            alert(
-                `❌ Insufficient wallet balance.\n\nAvailable: ₹${formatCurrency(
-                    walletBalance
-                )}\nRequired: ₹${formatCurrency(
-                    totalAmount
-                )}`
-            );
-            return;
-        }
+            if (currentPrice <= 0) {
+                setError(
+                    "Current investment price is not available."
+                );
+                return;
+            }
 
-        // SELL CHECK
-        if (
-            action === "SELL" &&
-            enteredQuantity >
-                portfolioQuantity
-        ) {
-            alert(
-                `❌ You only have ${portfolioQuantity} shares.`
-            );
-            return;
-        }
+            if (insufficientBalance) {
+                setError(
+                    `Insufficient wallet balance. Available ₹${formatCurrency(
+                        walletBalance
+                    )}, required ₹${formatCurrency(
+                        totalAmount
+                    )}.`
+                );
+                return;
+            }
 
-        try {
-            setLoading(true);
+            if (insufficientHoldings) {
+                const platformName =
+                    selectedPlatformData?.platform_name ??
+                    selectedPlatformData?.name ??
+                    selectedPlatformData?.platform ??
+                    "this platform";
 
-            const endpoint =
-                action === "BUY"
-                    ? "/buy-sell/buy"
-                    : "/buy-sell/sell";
+                setError(
+                    `You only own ${portfolioQuantity} shares of this investment on ${platformName}.`
+                );
 
-            const requestData = {
-                user_id: userId,
-                investment_id:
-                    Number(
-                        selectedInvestment
-                    ),
-                quantity:
-                    enteredQuantity,
-            };
+                return;
+            }
 
-            console.log(
-                "Transaction Request:",
-                requestData
-            );
+            try {
+                setLoading(true);
 
-            const response =
-                await api.post(
-                    endpoint,
+                const endpoint =
+                    action === "BUY"
+                        ? "/buy-sell/buy"
+                        : "/buy-sell/sell";
+
+                const requestData = {
+                    investment_id:
+                        Number(
+                            selectedInvestment
+                        ),
+                    platform_id:
+                        Number(
+                            selectedPlatform
+                        ),
+                    quantity:
+                        enteredQuantity,
+                };
+
+                console.log(
+                    "📤 Transaction Request:",
                     requestData
                 );
 
-            console.log(
-                "Transaction Response:",
-                response.data
-            );
+                const response =
+                    await api.post(
+                        endpoint,
+                        requestData
+                    );
 
-            if (response.data.success) {
-                alert(
+                console.log(
+                    "📥 Transaction Response:",
+                    response.data
+                );
+
+                if (!response.data?.success) {
+                    throw new Error(
+                        response.data?.message ||
+                            "Transaction failed"
+                    );
+                }
+
+                setSuccess(
                     action === "BUY"
-                        ? "✅ Investment purchased successfully!"
-                        : "✅ Investment sold successfully!"
+                        ? "Investment purchased successfully!"
+                        : "Investment sold successfully!"
                 );
 
                 setQuantity("");
 
-                // Refresh wallet
-                await loadWallet();
+                // Refresh all related data
+                await Promise.all([
+                    loadWallet(),
+                    loadInvestments(),
+                ]);
 
-                // Refresh investments
-                await loadInvestments();
-
-                // Refresh portfolio
                 await loadPortfolioQuantity(
-                    selectedInvestment
+                    selectedInvestment,
+                    selectedPlatform
                 );
-            } else {
-                setError(
-                    response.data.message ||
-                    "Transaction failed"
+            } catch (err) {
+                console.error(
+                    "❌ Transaction Error:",
+                    err
                 );
-            }
-        } catch (err) {
-            console.error(
-                "Transaction Error:",
-                err
-            );
 
-            setError(
-                err.response?.data?.message ||
-                "Transaction failed"
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
+                setError(
+                    err.response?.data?.message ||
+                        err.message ||
+                        "Transaction failed"
+                );
+            } finally {
+                setLoading(false);
+            }
+        };
 
     // =====================================================
     // PAGE LOADING
@@ -485,25 +762,21 @@ const userId = user?.id;
     if (pageLoading) {
         return (
             <div className="buy-sell-page">
-
                 <div className="buy-sell-loading">
-
                     <div className="loading-icon">
                         📈
                     </div>
 
                     <h2>
-                        Loading Investments...
+                        Loading Trading Data...
                     </h2>
 
                     <p>
                         Please wait while
                         InvestAI loads your
-                        trading data.
+                        trading information.
                     </p>
-
                 </div>
-
             </div>
         );
     }
@@ -518,9 +791,7 @@ const userId = user?.id;
             {/* HEADER */}
 
             <div className="buy-sell-header">
-
                 <div>
-
                     <span className="page-label">
                         INVESTAI TRADING
                     </span>
@@ -530,11 +801,10 @@ const userId = user?.id;
                     </h1>
 
                     <p>
-                        Buy or sell your
-                        investments easily
-                        and securely.
+                        Trade investments using
+                        your available wallet
+                        balance.
                     </p>
-
                 </div>
 
                 <button
@@ -544,19 +814,16 @@ const userId = user?.id;
                 >
                     🔄 Refresh
                 </button>
-
             </div>
 
             {/* WALLET */}
 
             <div className="wallet-trading-card">
-
                 <div className="wallet-icon">
                     💰
                 </div>
 
                 <div>
-
                     <span>
                         Available Wallet Balance
                     </span>
@@ -567,9 +834,7 @@ const userId = user?.id;
                             walletBalance
                         )}
                     </strong>
-
                 </div>
-
             </div>
 
             {/* ERROR */}
@@ -580,7 +845,15 @@ const userId = user?.id;
                 </div>
             )}
 
-            {/* MAIN */}
+            {/* SUCCESS */}
+
+            {success && (
+                <div className="trading-success">
+                    ✅ {success}
+                </div>
+            )}
+
+            {/* MAIN GRID */}
 
             <div className="trading-grid">
 
@@ -588,10 +861,9 @@ const userId = user?.id;
 
                 <div className="trading-card">
 
-                    {/* TABS */}
+                    {/* BUY / SELL */}
 
                     <div className="trade-tabs">
-
                         <button
                             type="button"
                             className={
@@ -623,8 +895,53 @@ const userId = user?.id;
                         >
                             ↘ SELL
                         </button>
-
                     </div>
+
+                    {/* PLATFORM */}
+
+                    <label>
+                        Select Platform
+                    </label>
+
+                    <select
+                        value={
+                            selectedPlatform
+                        }
+                        onChange={
+                            handlePlatformChange
+                        }
+                    >
+                        <option value="">
+                            -- Select Platform --
+                        </option>
+
+                        {platforms.map(
+                            (platform) => {
+                                const platformId =
+                                    platform?.platform_id ??
+                                    platform?.id;
+
+                                const platformName =
+                                    platform?.platform_name ??
+                                    platform?.name ??
+                                    platform?.platform ??
+                                    "Platform";
+
+                                return (
+                                    <option
+                                        key={
+                                            platformId
+                                        }
+                                        value={
+                                            platformId
+                                        }
+                                    >
+                                        {platformName}
+                                    </option>
+                                );
+                            }
+                        )}
+                    </select>
 
                     {/* INVESTMENT */}
 
@@ -640,22 +957,25 @@ const userId = user?.id;
                             handleInvestmentChange
                         }
                     >
-
                         <option value="">
                             -- Select Investment --
                         </option>
 
                         {investments.map(
                             (investment) => {
-
                                 const investmentId =
-                                    investment.investment_id ??
-                                    investment.id;
+                                    investment?.investment_id ??
+                                    investment?.id;
 
                                 const price =
                                     getInvestmentPrice(
                                         investment
                                     );
+
+                                const name =
+                                    investment?.investment_name ??
+                                    investment?.name ??
+                                    "Investment";
 
                                 return (
                                     <option
@@ -666,11 +986,7 @@ const userId = user?.id;
                                             investmentId
                                         }
                                     >
-                                        {
-                                            investment.investment_name ??
-                                            investment.name
-                                        }
-                                        {" - ₹"}
+                                        {name} - ₹
                                         {formatCurrency(
                                             price
                                         )}
@@ -678,20 +994,42 @@ const userId = user?.id;
                                 );
                             }
                         )}
-
                     </select>
+
+                    {/* SELECTED PLATFORM */}
+
+                    {selectedPlatformData && (
+                        <div className="selected-investment">
+                            <div className="investment-symbol">
+                                🏦
+                            </div>
+
+                            <div>
+                                <h3>
+                                    {
+                                        selectedPlatformData.platform_name ??
+                                        selectedPlatformData.name ??
+                                        selectedPlatformData.platform
+                                    }
+                                </h3>
+
+                                <span>
+                                    Selected Trading
+                                    Platform
+                                </span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* SELECTED INVESTMENT */}
 
                     {selected && (
                         <div className="selected-investment">
-
                             <div className="investment-symbol">
                                 📊
                             </div>
 
                             <div>
-
                                 <h3>
                                     {
                                         selected.investment_name ??
@@ -704,17 +1042,13 @@ const userId = user?.id;
                                         selected.investment_type ??
                                         "Investment"
                                     }
-
                                     {" • "}
-
                                     Risk:{" "}
-
                                     {
                                         selected.risk_level ??
                                         "Medium"
                                     }
                                 </span>
-
                             </div>
 
                             <strong>
@@ -723,26 +1057,29 @@ const userId = user?.id;
                                     currentPrice
                                 )}
                             </strong>
-
                         </div>
                     )}
 
-                    {/* HOLDINGS */}
+                    {/* SELL HOLDINGS */}
 
                     {action === "SELL" &&
-                        selected && (
+                        selected &&
+                        selectedPlatformData && (
                             <div className="holding-info">
-
                                 📦 You currently own{" "}
-
                                 <strong>
-                                    {
-                                        portfolioQuantity
-                                    }
+                                    {portfolioQuantity}
+                                </strong>{" "}
+                                {portfolioQuantity === 1
+                                    ? "share"
+                                    : "shares"}{" "}
+                                on{" "}
+                                <strong>
+                                    {selectedPlatformData.platform_name ??
+                                        selectedPlatformData.name ??
+                                        selectedPlatformData.platform}
                                 </strong>
-
-                                {" "}shares.
-
+                                .
                             </div>
                         )}
 
@@ -756,13 +1093,29 @@ const userId = user?.id;
                         type="number"
                         min="1"
                         step="1"
-                        placeholder="Enter quantity"
-                        value={quantity}
-                        onChange={(event) =>
-                            setQuantity(
-                                event.target.value
-                            )
+                        max={
+                            action === "SELL"
+                                ? portfolioQuantity
+                                : undefined
                         }
+                        placeholder={
+                            action === "SELL"
+                                ? `Max ${portfolioQuantity}`
+                                : "Enter quantity"
+                        }
+                        value={quantity}
+                        onChange={(event) => {
+                            const value =
+                                event.target.value;
+
+                            if (
+                                value === "" ||
+                                /^\d+$/.test(value)
+                            ) {
+                                setQuantity(value);
+                                setError("");
+                            }
+                        }}
                     />
 
                     {/* SUMMARY */}
@@ -770,7 +1123,6 @@ const userId = user?.id;
                     <div className="trade-summary">
 
                         <div>
-
                             <span>
                                 Current Price
                             </span>
@@ -781,26 +1133,20 @@ const userId = user?.id;
                                     currentPrice
                                 )}
                             </strong>
-
                         </div>
 
                         <div>
-
                             <span>
                                 Quantity
                             </span>
 
                             <strong>
-                                {
-                                    enteredQuantity ||
-                                    0
-                                }
+                                {enteredQuantity ||
+                                    0}
                             </strong>
-
                         </div>
 
                         <div className="total-row">
-
                             <span>
                                 Total Amount
                             </span>
@@ -811,12 +1157,64 @@ const userId = user?.id;
                                     totalAmount
                                 )}
                             </strong>
-
                         </div>
 
+                        {/* AFTER BALANCE */}
+
+                        {enteredQuantity > 0 &&
+                            currentPrice > 0 && (
+                                <div
+                                    className="total-row"
+                                    style={{
+                                        borderTop:
+                                            "1px solid #e5e7eb",
+                                        paddingTop:
+                                            "12px",
+                                    }}
+                                >
+                                    <span>
+                                        After Trade
+                                        Balance
+                                    </span>
+
+                                    <strong
+                                        style={{
+                                            color:
+                                                afterTradeBalance >=
+                                                0
+                                                    ? "#16a34a"
+                                                    : "#dc2626",
+                                        }}
+                                    >
+                                        ₹
+                                        {formatCurrency(
+                                            afterTradeBalance
+                                        )}
+                                    </strong>
+                                </div>
+                            )}
                     </div>
 
-                    {/* CONFIRM BUTTON */}
+                    {/* VALIDATION MESSAGE */}
+
+                    {action === "BUY" &&
+                        insufficientBalance && (
+                            <div className="trading-error">
+                                ⚠️ Insufficient wallet
+                                balance.
+                            </div>
+                        )}
+
+                    {action === "SELL" &&
+                        insufficientHoldings && (
+                            <div className="trading-error">
+                                ⚠️ You cannot sell more
+                                than your current
+                                holdings.
+                            </div>
+                        )}
+
+                    {/* CONFIRM */}
 
                     <button
                         type="button"
@@ -830,20 +1228,20 @@ const userId = user?.id;
                         }
                         disabled={
                             loading ||
+                            !selectedPlatform ||
                             !selectedInvestment ||
-                            !quantity ||
-                            currentPrice <= 0
+                            invalidQuantity ||
+                            currentPrice <= 0 ||
+                            insufficientBalance ||
+                            insufficientHoldings
                         }
                     >
-
                         {loading
                             ? "⏳ Processing..."
                             : action === "BUY"
                             ? "↗ Confirm Buy"
                             : "↘ Confirm Sell"}
-
                     </button>
-
                 </div>
 
                 {/* INFORMATION */}
@@ -851,7 +1249,6 @@ const userId = user?.id;
                 <div className="trading-info">
 
                     <div className="info-card">
-
                         <div className="info-icon">
                             🛡️
                         </div>
@@ -861,55 +1258,48 @@ const userId = user?.id;
                         </h3>
 
                         <p>
-                            InvestAI automatically
-                            updates your wallet,
+                            Your wallet,
                             portfolio and
                             transaction history
-                            after every trade.
+                            are updated after
+                            every successful trade.
                         </p>
-
                     </div>
 
                     <div className="info-card">
-
                         <div className="info-icon">
                             ⚡
                         </div>
 
                         <h3>
-                            Real-time Calculation
+                            Instant Calculation
                         </h3>
 
                         <p>
-                            Total amount is
-                            calculated automatically
-                            using the current
-                            investment price.
+                            Total trade value and
+                            remaining wallet
+                            balance are calculated
+                            automatically.
                         </p>
-
                     </div>
 
                     <div className="info-card">
-
                         <div className="info-icon">
                             🔄
                         </div>
 
                         <h3>
-                            Automatic Updates
+                            Platform-wise Holdings
                         </h3>
 
                         <p>
-                            Your wallet, portfolio
-                            and transaction history
-                            update automatically
-                            after every trade.
+                            Holdings are checked
+                            separately for each
+                            investment platform.
                         </p>
-
                     </div>
 
                 </div>
-
             </div>
 
             {/* FOOTER */}
@@ -918,7 +1308,6 @@ const userId = user?.id;
                 © 2026 InvestAI • Smart Investing
                 with AI
             </footer>
-
         </div>
     );
 }

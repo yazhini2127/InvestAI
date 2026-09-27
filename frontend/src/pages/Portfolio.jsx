@@ -16,7 +16,10 @@ const Portfolio = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Load logged-in user's portfolio
+  // =====================================================
+  // LOAD PORTFOLIO
+  // =====================================================
+
   const loadPortfolio = useCallback(async () => {
     try {
       setLoading(true);
@@ -32,11 +35,13 @@ const Portfolio = () => {
         );
       }
 
-      setPortfolio(
-        Array.isArray(response.data.portfolio)
-          ? response.data.portfolio
-          : []
-      );
+      const data = Array.isArray(response.data?.data)
+        ? response.data.data
+        : Array.isArray(response.data?.portfolio)
+        ? response.data.portfolio
+        : [];
+
+      setPortfolio(data);
     } catch (err) {
       console.error("❌ Portfolio Load Error:", err);
 
@@ -56,76 +61,187 @@ const Portfolio = () => {
     }
   }, []);
 
-  // Initial portfolio loading
   useEffect(() => {
-    let cancelled = false;
+    const timer = setTimeout(() => {
+      loadPortfolio();
+    }, 0);
 
-    const fetchPortfolio = async () => {
-      try {
-        setError("");
+    return () => clearTimeout(timer);
+  }, [loadPortfolio]);
 
-        const response = await api.get("/portfolio");
+  // =====================================================
+  // GROUP PORTFOLIO
+  // Investment + Platform = ONE HOLDING
+  // =====================================================
 
-        console.log(
-          "📊 Initial Portfolio response:",
-          response.data
-        );
+  const groupedPortfolio = useMemo(() => {
+    const grouped = {};
 
-        if (!response.data?.success) {
-          throw new Error(
-            response.data?.message ||
-              "Failed to load portfolio"
-          );
-        }
+    portfolio.forEach((item) => {
+      const investmentId = Number(
+        item?.investment_id ??
+          item?.investmentId ??
+          0
+      );
 
-        if (cancelled) return;
+      const platformId = Number(
+        item?.platform_id ??
+          item?.platformId ??
+          0
+      );
 
-        setPortfolio(
-          Array.isArray(response.data.portfolio)
-            ? response.data.portfolio
-            : []
-        );
-      } catch (err) {
-        if (cancelled) return;
+      const investmentName =
+        item?.investment_name ||
+        item?.investmentName ||
+        "Unknown Investment";
 
-        console.error(
-          "❌ Initial Portfolio Error:",
-          err
-        );
+      const platformName =
+        item?.platform_name ||
+        item?.platformName ||
+        item?.platform ||
+        "Unknown Platform";
 
-        setPortfolio([]);
+      /*
+        Important:
+        Investment + Platform together create the group.
 
-        if (err.response?.status === 401) {
-          setError(
-            "Session expired. Please login again."
-          );
-        } else {
-          setError(
-            err.response?.data?.message ||
-              err.message ||
-              "Failed to load portfolio"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        Example:
+        ITC + Groww
+        ITC + Zerodha
+
+        These will remain separate.
+      */
+
+      const key =
+        investmentId > 0
+          ? `investment_${investmentId}_platform_${platformId}`
+          : `name_${investmentName
+              .toLowerCase()
+              .trim()}_platform_${platformId}`;
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          ...item,
+
+          quantity: 0,
+          invested_amount: 0,
+          current_value: 0,
+
+          platform_name: platformName,
+          platform_id: platformId,
+
+          portfolioIds: [],
+        };
       }
-    };
 
-    fetchPortfolio();
+      const quantity = Number(item?.quantity || 0);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      const investedAmount = Number(
+        item?.invested_amount ??
+          item?.investedAmount ??
+          0
+      );
 
-  // Delete portfolio investment
+      const currentPrice = Number(
+        item?.current_price ??
+          item?.currentPrice ??
+          0
+      );
+
+      grouped[key].quantity += quantity;
+
+      grouped[key].invested_amount +=
+        investedAmount;
+
+      grouped[key].current_value +=
+        quantity * currentPrice;
+
+      if (item?.portfolio_id) {
+        grouped[key].portfolioIds.push(
+          item.portfolio_id
+        );
+      }
+    });
+
+    return Object.values(grouped);
+  }, [portfolio]);
+
+  // =====================================================
+  // SUMMARY
+  // =====================================================
+
+  const totalInvested = useMemo(() => {
+    return groupedPortfolio.reduce(
+      (total, item) =>
+        total + Number(item.invested_amount || 0),
+      0
+    );
+  }, [groupedPortfolio]);
+
+  const currentValue = useMemo(() => {
+    return groupedPortfolio.reduce(
+      (total, item) =>
+        total + Number(item.current_value || 0),
+      0
+    );
+  }, [groupedPortfolio]);
+
+  const profitLoss = useMemo(() => {
+    return currentValue - totalInvested;
+  }, [currentValue, totalInvested]);
+
+  const returnPercentage = useMemo(() => {
+    if (totalInvested <= 0) {
+      return 0;
+    }
+
+    return (
+      (profitLoss / totalInvested) *
+      100
+    );
+  }, [profitLoss, totalInvested]);
+
+  // =====================================================
+  // FORMATTERS
+  // =====================================================
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "-";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "-";
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
+  };
+
+  // =====================================================
+  // DELETE
+  // =====================================================
+
   const handleDelete = async (portfolioId) => {
     if (!portfolioId) return;
 
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this investment?"
+      "Are you sure you want to delete this investment holding?"
     );
 
     if (!confirmDelete) return;
@@ -151,12 +267,20 @@ const Portfolio = () => {
           "Investment deleted successfully"
       );
 
+      /*
+        Remove the deleted row from local state.
+      */
       setPortfolio((prev) =>
         prev.filter(
           (item) =>
-            item.portfolio_id !== portfolioId
+            Number(item.portfolio_id) !==
+            Number(portfolioId)
         )
       );
+
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
     } catch (err) {
       console.error(
         "❌ Portfolio Delete Error:",
@@ -179,60 +303,17 @@ const Portfolio = () => {
     }
   };
 
-  // Calculate total invested amount
-  const totalInvested = useMemo(() => {
-    return portfolio.reduce(
-      (total, item) =>
-        total + Number(item.invested_amount || 0),
-      0
-    );
-  }, [portfolio]);
+  // =====================================================
+  // LOGIN REDIRECT
+  // =====================================================
 
-  // Calculate current value
-  const currentValue = useMemo(() => {
-    return portfolio.reduce((total, item) => {
-      const quantity = Number(item.quantity || 0);
-      const currentPrice = Number(
-        item.current_price || 0
-      );
-
-      return total + quantity * currentPrice;
-    }, 0);
-  }, [portfolio]);
-
-  // Calculate profit / loss
-  const profitLoss = useMemo(() => {
-    return currentValue - totalInvested;
-  }, [currentValue, totalInvested]);
-
-  // Calculate return percentage
-  const returnPercentage = useMemo(() => {
-    if (totalInvested === 0) return 0;
-
-    return (profitLoss / totalInvested) * 100;
-  }, [profitLoss, totalInvested]);
-
-  // Currency formatter
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-    }).format(Number(value || 0));
+  const handleLogin = () => {
+    navigate("/login");
   };
 
-  // Date formatter
-  const formatDate = (date) => {
-    if (!date) return "-";
-
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return "-";
-    }
-
-    return parsedDate.toLocaleDateString("en-IN");
-  };
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
     <div
@@ -242,15 +323,18 @@ const Portfolio = () => {
         background: "#f8fafc",
       }}
     >
-      {/* Header */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "25px",
           gap: "15px",
           flexWrap: "wrap",
+          marginBottom: "25px",
         }}
       >
         <div>
@@ -268,6 +352,7 @@ const Portfolio = () => {
           <p
             style={{
               marginTop: "8px",
+              marginBottom: 0,
               color: "#6b7280",
             }}
           >
@@ -292,11 +377,16 @@ const Portfolio = () => {
             opacity: loading ? 0.7 : 1,
           }}
         >
-          {loading ? "Refreshing..." : "Refresh"}
+          {loading
+            ? "Refreshing..."
+            : "🔄 Refresh"}
         </button>
       </div>
 
-      {/* Error */}
+      {/* =================================================
+          ERROR
+      ================================================= */}
+
       {error && (
         <div
           style={{
@@ -312,7 +402,7 @@ const Portfolio = () => {
 
           {error.includes("login") && (
             <button
-              onClick={() => navigate("/login")}
+              onClick={handleLogin}
               style={{
                 marginLeft: "15px",
                 padding: "6px 12px",
@@ -329,7 +419,10 @@ const Portfolio = () => {
         </div>
       )}
 
-      {/* Success */}
+      {/* =================================================
+          SUCCESS
+      ================================================= */}
+
       {success && (
         <div
           style={{
@@ -345,7 +438,10 @@ const Portfolio = () => {
         </div>
       )}
 
-      {/* Loading */}
+      {/* =================================================
+          LOADING
+      ================================================= */}
+
       {loading ? (
         <div
           style={{
@@ -354,12 +450,27 @@ const Portfolio = () => {
             color: "#6b7280",
           }}
         >
+          <div
+            style={{
+              fontSize: "40px",
+              marginBottom: "10px",
+            }}
+          >
+            📊
+          </div>
+
           <h3>Loading portfolio...</h3>
-          <p>Please wait.</p>
+
+          <p>
+            Please wait while we fetch your investments.
+          </p>
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
+          {/* =================================================
+              SUMMARY CARDS
+          ================================================= */}
+
           <div
             style={{
               display: "grid",
@@ -369,7 +480,8 @@ const Portfolio = () => {
               marginBottom: "30px",
             }}
           >
-            {/* Total Invested */}
+            {/* TOTAL INVESTED */}
+
             <div
               style={{
                 background: "#fff",
@@ -377,6 +489,7 @@ const Portfolio = () => {
                 borderRadius: "12px",
                 boxShadow:
                   "0 2px 10px rgba(0,0,0,0.06)",
+                border: "1px solid #e5e7eb",
               }}
             >
               <p
@@ -386,7 +499,7 @@ const Portfolio = () => {
                   fontSize: "14px",
                 }}
               >
-                Total Invested
+                💰 Total Invested
               </p>
 
               <h2
@@ -400,7 +513,8 @@ const Portfolio = () => {
               </h2>
             </div>
 
-            {/* Current Value */}
+            {/* CURRENT VALUE */}
+
             <div
               style={{
                 background: "#fff",
@@ -408,6 +522,7 @@ const Portfolio = () => {
                 borderRadius: "12px",
                 boxShadow:
                   "0 2px 10px rgba(0,0,0,0.06)",
+                border: "1px solid #e5e7eb",
               }}
             >
               <p
@@ -417,7 +532,7 @@ const Portfolio = () => {
                   fontSize: "14px",
                 }}
               >
-                Current Value
+                📊 Current Value
               </p>
 
               <h2
@@ -431,7 +546,8 @@ const Portfolio = () => {
               </h2>
             </div>
 
-            {/* Profit / Loss */}
+            {/* PROFIT / LOSS */}
+
             <div
               style={{
                 background: "#fff",
@@ -439,6 +555,7 @@ const Portfolio = () => {
                 borderRadius: "12px",
                 boxShadow:
                   "0 2px 10px rgba(0,0,0,0.06)",
+                border: "1px solid #e5e7eb",
               }}
             >
               <p
@@ -448,7 +565,7 @@ const Portfolio = () => {
                   fontSize: "14px",
                 }}
               >
-                Profit / Loss
+                📈 Profit / Loss
               </p>
 
               <h2
@@ -466,7 +583,8 @@ const Portfolio = () => {
               </h2>
             </div>
 
-            {/* Return */}
+            {/* RETURN */}
+
             <div
               style={{
                 background: "#fff",
@@ -474,6 +592,7 @@ const Portfolio = () => {
                 borderRadius: "12px",
                 boxShadow:
                   "0 2px 10px rgba(0,0,0,0.06)",
+                border: "1px solid #e5e7eb",
               }}
             >
               <p
@@ -483,7 +602,7 @@ const Portfolio = () => {
                   fontSize: "14px",
                 }}
               >
-                Total Return
+                🎯 Total Return
               </p>
 
               <h2
@@ -496,15 +615,142 @@ const Portfolio = () => {
                       : "#dc2626",
                 }}
               >
-                {returnPercentage >= 0
-                  ? "+"
-                  : ""}
+                {returnPercentage >= 0 ? "+" : ""}
                 {returnPercentage.toFixed(2)}%
               </h2>
             </div>
           </div>
 
-          {/* Investments Section */}
+          {/* =================================================
+              PORTFOLIO OVERVIEW
+          ================================================= */}
+
+          {groupedPortfolio.length > 0 && (
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "25px",
+                marginBottom: "25px",
+                boxShadow:
+                  "0 2px 10px rgba(0,0,0,0.06)",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  color: "#111827",
+                }}
+              >
+                Portfolio Overview
+              </h2>
+
+              <div
+                style={{
+                  marginTop: "20px",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "16px",
+                    borderRadius: "10px",
+                    background: "#eff6ff",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Holdings
+                  </div>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      marginTop: "5px",
+                      fontSize: "22px",
+                      color: "#1d4ed8",
+                    }}
+                  >
+                    {groupedPortfolio.length}
+                  </strong>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px",
+                    borderRadius: "10px",
+                    background: "#f0fdf4",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Portfolio Status
+                  </div>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      marginTop: "5px",
+                      fontSize: "22px",
+                      color:
+                        profitLoss >= 0
+                          ? "#16a34a"
+                          : "#dc2626",
+                    }}
+                  >
+                    {profitLoss >= 0
+                      ? "Positive"
+                      : "Negative"}
+                  </strong>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px",
+                    borderRadius: "10px",
+                    background: "#fefce8",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Return
+                  </div>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      marginTop: "5px",
+                      fontSize: "22px",
+                      color: "#ca8a04",
+                    }}
+                  >
+                    {returnPercentage.toFixed(2)}%
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================
+              INVESTMENTS
+          ================================================= */}
+
           <div
             style={{
               background: "#fff",
@@ -512,6 +758,7 @@ const Portfolio = () => {
               padding: "25px",
               boxShadow:
                 "0 2px 10px rgba(0,0,0,0.06)",
+              border: "1px solid #e5e7eb",
             }}
           >
             <div
@@ -520,6 +767,8 @@ const Portfolio = () => {
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: "20px",
+                gap: "15px",
+                flexWrap: "wrap",
               }}
             >
               <div>
@@ -535,20 +784,41 @@ const Portfolio = () => {
                 <p
                   style={{
                     marginTop: "6px",
+                    marginBottom: 0,
                     color: "#6b7280",
                   }}
                 >
-                  {portfolio.length}{" "}
-                  {portfolio.length === 1
-                    ? "investment"
-                    : "investments"}{" "}
+                  {groupedPortfolio.length}{" "}
+                  {groupedPortfolio.length === 1
+                    ? "holding"
+                    : "holdings"}{" "}
                   in your portfolio
                 </p>
               </div>
+
+              <button
+                onClick={() =>
+                  navigate("/investments")
+                }
+                style={{
+                  padding: "9px 15px",
+                  border: "none",
+                  borderRadius: "8px",
+                  background: "#2563eb",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                }}
+              >
+                + Explore Investments
+              </button>
             </div>
 
-            {/* Empty Portfolio */}
-            {portfolio.length === 0 ? (
+            {/* =================================================
+                EMPTY
+            ================================================= */}
+
+            {groupedPortfolio.length === 0 ? (
               <div
                 style={{
                   textAlign: "center",
@@ -577,7 +847,7 @@ const Portfolio = () => {
                 <p>
                   Your portfolio is empty.
                   Start investing to see your
-                  investments here.
+                  holdings here.
                 </p>
 
                 <button
@@ -599,360 +869,412 @@ const Portfolio = () => {
                 </button>
               </div>
             ) : (
-              /* Investment Cards */
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "repeat(auto-fit, minmax(280px, 1fr))",
+                    "repeat(auto-fit, minmax(300px, 1fr))",
                   gap: "20px",
                 }}
               >
-                {portfolio.map((item) => {
-                  const quantity = Number(
-                    item.quantity || 0
-                  );
+                {groupedPortfolio.map(
+                  (item, index) => {
+                    const quantity = Number(
+                      item.quantity || 0
+                    );
 
-                  const investedAmount = Number(
-                    item.invested_amount || 0
-                  );
+                    const investedAmount =
+                      Number(
+                        item.invested_amount || 0
+                      );
 
-                  const currentPrice = Number(
-                    item.current_price || 0
-                  );
+                    const currentAmount =
+                      Number(
+                        item.current_value || 0
+                      );
 
-                  const currentAmount =
-                    quantity * currentPrice;
+                    const currentPrice =
+                      Number(
+                        item.current_price || 0
+                      );
 
-                  const itemProfit =
-                    currentAmount -
-                    investedAmount;
+                    const itemProfit =
+                      currentAmount -
+                      investedAmount;
 
-                  const itemReturn =
-                    investedAmount > 0
-                      ? (itemProfit /
-                          investedAmount) *
-                        100
-                      : 0;
+                    const itemReturn =
+                      investedAmount > 0
+                        ? (itemProfit /
+                            investedAmount) *
+                          100
+                        : 0;
 
-                  return (
-                    <div
-                      key={item.portfolio_id}
-                      style={{
-                        border:
-                          "1px solid #e5e7eb",
-                        borderRadius: "12px",
-                        padding: "20px",
-                      }}
-                    >
-                      {/* Investment Name */}
+                    /*
+                      Since this card represents one
+                      Investment + Platform holding,
+                      use the first portfolio row
+                      as the delete target.
+                    */
+                    const portfolioId =
+                      item.portfolioIds?.[0];
+
+                    return (
                       <div
+                        key={`${item.investment_id}-${item.platform_id}-${index}`}
                         style={{
-                          display: "flex",
-                          justifyContent:
-                            "space-between",
-                          alignItems: "flex-start",
-                          gap: "10px",
+                          border:
+                            "1px solid #e5e7eb",
+                          borderRadius: "14px",
+                          padding: "20px",
+                          background: "#fff",
                         }}
                       >
-                        <div>
-                          <h3
-                            style={{
-                              margin: 0,
-                              color:
-                                "#111827",
-                            }}
-                          >
-                            {
-                              item.investment_name
-                            }
-                          </h3>
+                        {/* NAME */}
 
-                          <p
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent:
+                              "space-between",
+                            alignItems:
+                              "flex-start",
+                            gap: "10px",
+                          }}
+                        >
+                          <div>
+                            <h3
+                              style={{
+                                margin: 0,
+                                color:
+                                  "#111827",
+                                fontSize:
+                                  "19px",
+                              }}
+                            >
+                              {item.investment_name}
+                            </h3>
+
+                            <p
+                              style={{
+                                marginTop:
+                                  "5px",
+                                marginBottom: 0,
+                                color:
+                                  "#6b7280",
+                                fontSize:
+                                  "14px",
+                              }}
+                            >
+                              {item.investment_type}
+                            </p>
+                          </div>
+
+                          <span
                             style={{
-                              marginTop:
-                                "5px",
-                              color:
-                                "#6b7280",
+                              padding:
+                                "5px 10px",
+                              borderRadius:
+                                "20px",
+                              background:
+                                "#f3f4f6",
                               fontSize:
-                                "14px",
+                                "12px",
+                              color:
+                                "#374151",
+                              fontWeight:
+                                "600",
                             }}
                           >
-                            {
-                              item.investment_type
-                            }
-                          </p>
+                            {item.risk_level ||
+                              "N/A"}
+                          </span>
                         </div>
 
-                        <span
+                        {/* PLATFORM */}
+
+                        <div
                           style={{
-                            padding:
-                              "5px 10px",
-                            borderRadius:
+                            marginTop: "14px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display:
+                                "inline-block",
+                              padding:
+                                "6px 11px",
+                              borderRadius:
+                                "7px",
+                              background:
+                                "#eff6ff",
+                              color:
+                                "#1d4ed8",
+                              fontSize:
+                                "12px",
+                              fontWeight:
+                                "600",
+                            }}
+                          >
+                            🏦{" "}
+                            {item.platform_name ||
+                              "Unknown Platform"}
+                          </span>
+                        </div>
+
+                        {/* DETAILS */}
+
+                        <div
+                          style={{
+                            marginTop:
                               "20px",
-                            background:
-                              "#f3f4f6",
-                            fontSize:
-                              "12px",
-                            color:
-                              "#374151",
+                            display: "grid",
+                            gap: "12px",
                           }}
                         >
-                          {
-                            item.risk_level
-                          }
-                        </span>
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Quantity
+                            </span>
+
+                            <strong>
+                              {quantity}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Invested
+                            </span>
+
+                            <strong>
+                              {formatCurrency(
+                                investedAmount
+                              )}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Current Value
+                            </span>
+
+                            <strong>
+                              {formatCurrency(
+                                currentAmount
+                              )}
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Current Price
+                            </span>
+
+                            <strong>
+                              {formatCurrency(
+                                currentPrice
+                              )}
+                            </strong>
+                          </div>
+
+                          {/* P/L */}
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                              paddingTop:
+                                "12px",
+                              borderTop:
+                                "1px solid #e5e7eb",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Profit / Loss
+                            </span>
+
+                            <strong
+                              style={{
+                                color:
+                                  itemProfit >= 0
+                                    ? "#16a34a"
+                                    : "#dc2626",
+                              }}
+                            >
+                              {itemProfit >= 0
+                                ? "+"
+                                : ""}
+                              {formatCurrency(
+                                itemProfit
+                              )}
+                            </strong>
+                          </div>
+
+                          {/* RETURN */}
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Return
+                            </span>
+
+                            <strong
+                              style={{
+                                color:
+                                  itemReturn >= 0
+                                    ? "#16a34a"
+                                    : "#dc2626",
+                              }}
+                            >
+                              {itemReturn >= 0
+                                ? "+"
+                                : ""}
+                              {itemReturn.toFixed(2)}%
+                            </strong>
+                          </div>
+
+                          {/* PURCHASE DATE */}
+
+                          <div
+                            style={{
+                              display:
+                                "flex",
+                              justifyContent:
+                                "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color:
+                                  "#6b7280",
+                              }}
+                            >
+                              Purchase Date
+                            </span>
+
+                            <strong>
+                              {formatDate(
+                                item.purchase_date
+                              )}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* DELETE */}
+
+                        {portfolioId && (
+                          <button
+                            onClick={() =>
+                              handleDelete(
+                                portfolioId
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              portfolioId
+                            }
+                            style={{
+                              width: "100%",
+                              marginTop:
+                                "20px",
+                              padding:
+                                "10px",
+                              border: "none",
+                              borderRadius:
+                                "8px",
+                              background:
+                                "#dc2626",
+                              color: "#fff",
+                              cursor:
+                                deletingId ===
+                                portfolioId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              fontWeight:
+                                "600",
+                              opacity:
+                                deletingId ===
+                                portfolioId
+                                  ? 0.7
+                                  : 1,
+                            }}
+                          >
+                            {deletingId ===
+                            portfolioId
+                              ? "Deleting..."
+                              : "🗑️ Delete Holding"}
+                          </button>
+                        )}
                       </div>
-
-                      {/* Details */}
-                      <div
-                        style={{
-                          marginTop:
-                            "20px",
-                          display: "grid",
-                          gap: "12px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Quantity
-                          </span>
-
-                          <strong>
-                            {quantity}
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Invested
-                          </span>
-
-                          <strong>
-                            {formatCurrency(
-                              investedAmount
-                            )}
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Current Price
-                          </span>
-
-                          <strong>
-                            {formatCurrency(
-                              currentPrice
-                            )}
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Current Value
-                          </span>
-
-                          <strong>
-                            {formatCurrency(
-                              currentAmount
-                            )}
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                            paddingTop:
-                              "10px",
-                            borderTop:
-                              "1px solid #e5e7eb",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Profit / Loss
-                          </span>
-
-                          <strong
-                            style={{
-                              color:
-                                itemProfit >=
-                                0
-                                  ? "#16a34a"
-                                  : "#dc2626",
-                            }}
-                          >
-                            {itemProfit >=
-                            0
-                              ? "+"
-                              : ""}
-                            {formatCurrency(
-                              itemProfit
-                            )}
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Return
-                          </span>
-
-                          <strong
-                            style={{
-                              color:
-                                itemReturn >=
-                                0
-                                  ? "#16a34a"
-                                  : "#dc2626",
-                            }}
-                          >
-                            {itemReturn >=
-                            0
-                              ? "+"
-                              : ""}
-                            {itemReturn.toFixed(
-                              2
-                            )}
-                            %
-                          </strong>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            Purchase Date
-                          </span>
-
-                          <strong>
-                            {formatDate(
-                              item.purchase_date
-                            )}
-                          </strong>
-                        </div>
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() =>
-                          handleDelete(
-                            item.portfolio_id
-                          )
-                        }
-                        disabled={
-                          deletingId ===
-                          item.portfolio_id
-                        }
-                        style={{
-                          width: "100%",
-                          marginTop:
-                            "20px",
-                          padding: "10px",
-                          border: "none",
-                          borderRadius:
-                            "8px",
-                          background:
-                            "#dc2626",
-                          color: "#fff",
-                          cursor:
-                            deletingId ===
-                            item.portfolio_id
-                              ? "not-allowed"
-                              : "pointer",
-                          fontWeight:
-                            "600",
-                          opacity:
-                            deletingId ===
-                            item.portfolio_id
-                              ? 0.7
-                              : 1,
-                        }}
-                      >
-                        {deletingId ===
-                        item.portfolio_id
-                          ? "Deleting..."
-                          : "Delete Investment"}
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  }
+                )}
               </div>
             )}
           </div>

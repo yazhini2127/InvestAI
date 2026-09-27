@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 import "./Login.css";
 
 function Login() {
@@ -18,30 +18,37 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        "https://investai-tww5.onrender.com/api/auth/login",
-        {
-          email,
-          password,
-        }
-      );
+      const response = await api.post("/auth/login", {
+        email,
+        password,
+      });
 
       console.log("Login Response:", response.data);
 
-      // Save token
+      // Save JWT token
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
 
-      // Save user information if available
+      // Save user information
       if (response.data.user) {
         localStorage.setItem(
           "user",
           JSON.stringify(response.data.user)
         );
+
+        // Optional compatibility
+        localStorage.setItem(
+          "userData",
+          JSON.stringify(response.data.user)
+        );
       }
 
-      // Go to Dashboard
+      console.log(
+        "Token saved:",
+        localStorage.getItem("token") ? "YES" : "NO"
+      );
+
       navigate("/dashboard");
 
     } catch (err) {
@@ -49,7 +56,7 @@ function Login() {
 
       if (err.response) {
         setError(
-          err.response.data.message ||
+          err.response.data?.message ||
           "Invalid email or password"
         );
       } else {

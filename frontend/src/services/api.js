@@ -3,13 +3,14 @@ import axios from "axios";
 const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
-    "https://investai-tww5.onrender.com/api",
+    "http://localhost:5000/api",
+
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Automatically send logged-in user's JWT token
+// Automatically send JWT token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -20,17 +21,23 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// If token is invalid, logout the user
+// Handle authentication errors
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       localStorage.removeItem("userData");
+      localStorage.removeItem("userId");
+
+      console.log("⚠️ Session expired. Please login again.");
     }
 
     return Promise.reject(error);

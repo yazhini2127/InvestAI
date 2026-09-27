@@ -3,8 +3,21 @@ import api from "../services/api";
 import "./Profile.css";
 
 function Profile() {
+    // =====================================================
+    // USER FROM LOCAL STORAGE
+    // =====================================================
+
     const storedUser = localStorage.getItem("user");
-    const user = storedUser ? JSON.parse(storedUser) : null;
+
+    let user = null;
+
+    try {
+        user = storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+        console.error("LOCAL STORAGE USER ERROR:", error);
+        user = null;
+    }
+
     const userId = user?.id ?? user?.user_id;
 
     // =====================================================
@@ -75,41 +88,41 @@ function Profile() {
         (data) => {
             return {
                 id:
-                    data.user_id ??
-                    data.id ??
+                    data?.user_id ??
+                    data?.id ??
                     userId ??
                     "",
 
                 username:
-                    data.full_name ??
-                    data.username ??
-                    data.name ??
+                    data?.full_name ??
+                    data?.username ??
+                    data?.name ??
                     user?.username ??
                     user?.full_name ??
                     user?.name ??
                     "",
 
                 email:
-                    data.email ??
+                    data?.email ??
                     user?.email ??
                     "",
 
                 phone:
-                    data.phone ??
+                    data?.phone ??
                     user?.phone ??
                     "",
 
                 riskLevel:
-                    data.risk_level ??
-                    data.riskLevel ??
+                    data?.risk_level ??
+                    data?.riskLevel ??
                     user?.risk_level ??
                     user?.riskLevel ??
                     "Medium",
 
                 joinedDate:
-                    data.created_at ??
-                    data.joined_date ??
-                    data.joinedDate ??
+                    data?.created_at ??
+                    data?.joined_date ??
+                    data?.joinedDate ??
                     user?.created_at ??
                     user?.joinedDate ??
                     "",
@@ -130,6 +143,37 @@ function Profile() {
     );
 
     // =====================================================
+    // APPLY PROFILE
+    // =====================================================
+
+    const applyProfile = useCallback(
+        (data) => {
+            if (!data || typeof data !== "object") {
+                return;
+            }
+
+            const updatedProfile =
+                convertUser(data);
+
+            setProfile(updatedProfile);
+
+            if (!editing) {
+                setFormData({
+                    username:
+                        updatedProfile.username,
+                    email:
+                        updatedProfile.email,
+                    phone:
+                        updatedProfile.phone,
+                    riskLevel:
+                        updatedProfile.riskLevel,
+                });
+            }
+        },
+        [convertUser, editing]
+    );
+
+    // =====================================================
     // LOAD PROFILE
     // =====================================================
 
@@ -137,11 +181,18 @@ function Profile() {
         let mounted = true;
 
         const loadProfile = async () => {
+            /*
+             * IMPORTANT:
+             * Even if API fails, localStorage already contains
+             * the user's profile information.
+             *
+             * Therefore, we don't show "Profile not found"
+             * unnecessarily.
+             */
+
             if (!userId) {
                 if (mounted) {
-                    setError(
-                        "User session not found. Please login again."
-                    );
+                    setError("");
                     setLoading(false);
                 }
                 return;
@@ -166,21 +217,7 @@ function Profile() {
                     data &&
                     typeof data === "object"
                 ) {
-                    const updatedProfile =
-                        convertUser(data);
-
-                    setProfile(updatedProfile);
-
-                    setFormData({
-                        username:
-                            updatedProfile.username,
-                        email:
-                            updatedProfile.email,
-                        phone:
-                            updatedProfile.phone,
-                        riskLevel:
-                            updatedProfile.riskLevel,
-                    });
+                    applyProfile(data);
                 }
             } catch (err) {
                 console.error(
@@ -190,22 +227,19 @@ function Profile() {
 
                 if (!mounted) return;
 
+                /*
+                 * Keep the profile displayed from
+                 * localStorage when API returns 404.
+                 */
+
                 if (
                     err?.response?.status === 401
                 ) {
                     setError(
                         "Your session has expired. Please login again."
                     );
-                } else if (
-                    err?.response?.status === 404
-                ) {
-                    setError(
-                        "Profile not found."
-                    );
                 } else {
-                    setError(
-                        "Unable to load profile from server."
-                    );
+                    setError("");
                 }
             } finally {
                 if (mounted) {
@@ -219,7 +253,7 @@ function Profile() {
         return () => {
             mounted = false;
         };
-    }, [userId, convertUser]);
+    }, [userId, applyProfile]);
 
     // =====================================================
     // REFRESH
@@ -227,9 +261,7 @@ function Profile() {
 
     const handleRefresh = async () => {
         if (!userId) {
-            setError(
-                "User session not found. Please login again."
-            );
+            setError("");
             return;
         }
 
@@ -250,23 +282,7 @@ function Profile() {
                 data &&
                 typeof data === "object"
             ) {
-                const updatedProfile =
-                    convertUser(data);
-
-                setProfile(updatedProfile);
-
-                if (!editing) {
-                    setFormData({
-                        username:
-                            updatedProfile.username,
-                        email:
-                            updatedProfile.email,
-                        phone:
-                            updatedProfile.phone,
-                        riskLevel:
-                            updatedProfile.riskLevel,
-                    });
-                }
+                applyProfile(data);
             }
         } catch (err) {
             console.error(
@@ -280,16 +296,12 @@ function Profile() {
                 setError(
                     "Your session has expired. Please login again."
                 );
-            } else if (
-                err?.response?.status === 404
-            ) {
-                setError(
-                    "Profile not found."
-                );
             } else {
-                setError(
-                    "Unable to refresh profile."
-                );
+                /*
+                 * Don't show profile not found.
+                 * Existing profile remains visible.
+                 */
+                setError("");
             }
         } finally {
             setLoading(false);
@@ -322,12 +334,10 @@ function Profile() {
             value,
         } = event.target;
 
-        setFormData(
-            (previous) => ({
-                ...previous,
-                [name]: value,
-            })
-        );
+        setFormData((previous) => ({
+            ...previous,
+            [name]: value,
+        }));
 
         setError("");
     };
@@ -373,11 +383,21 @@ function Profile() {
 
             const payload = {
                 full_name: username,
-                email,
-                phone,
+                username: username,
+                email: email,
+                phone: phone,
                 risk_level:
                     formData.riskLevel,
             };
+
+            /*
+             * FIXED:
+             * Old code had:
+             * `/users/profile}`
+             *
+             * Now:
+             * `/users/profile/${userId}`
+             */
 
             const response = await api.put(
                 `/users/profile/${userId}`,
@@ -389,27 +409,16 @@ function Profile() {
                 response.data?.data ??
                 response.data;
 
+            let updatedProfile;
+
             if (
                 data &&
                 typeof data === "object"
             ) {
-                const updatedProfile =
+                updatedProfile =
                     convertUser(data);
-
-                setProfile(updatedProfile);
-
-                setFormData({
-                    username:
-                        updatedProfile.username,
-                    email:
-                        updatedProfile.email,
-                    phone:
-                        updatedProfile.phone,
-                    riskLevel:
-                        updatedProfile.riskLevel,
-                });
             } else {
-                const updatedProfile = {
+                updatedProfile = {
                     ...profile,
                     id: userId,
                     username,
@@ -418,19 +427,25 @@ function Profile() {
                     riskLevel:
                         formData.riskLevel,
                 };
-
-                setProfile(updatedProfile);
-
-                setFormData({
-                    username,
-                    email,
-                    phone,
-                    riskLevel:
-                        formData.riskLevel,
-                });
             }
 
-            // Update localStorage user information
+            setProfile(updatedProfile);
+
+            setFormData({
+                username:
+                    updatedProfile.username,
+                email:
+                    updatedProfile.email,
+                phone:
+                    updatedProfile.phone,
+                riskLevel:
+                    updatedProfile.riskLevel,
+            });
+
+            // =================================================
+            // UPDATE LOCAL STORAGE
+            // =================================================
+
             const currentStoredUser =
                 localStorage.getItem("user");
 
@@ -443,19 +458,24 @@ function Profile() {
 
                     const updatedLocalUser = {
                         ...currentUser,
+
                         id:
                             currentUser.id ??
                             currentUser.user_id ??
                             userId,
+
                         user_id:
                             currentUser.user_id ??
                             userId,
+
                         full_name: username,
                         username,
                         email,
                         phone,
+
                         risk_level:
                             formData.riskLevel,
+
                         riskLevel:
                             formData.riskLevel,
                     };
@@ -734,9 +754,7 @@ function Profile() {
                 <button
                     type="button"
                     className="profile-refresh-btn"
-                    onClick={
-                        handleRefresh
-                    }
+                    onClick={handleRefresh}
                     disabled={loading}
                 >
                     {loading
@@ -894,6 +912,7 @@ function Profile() {
                                 <option value="High">
                                     High
                                 </option>
+
                             </select>
 
                         </div>
@@ -905,9 +924,7 @@ function Profile() {
                         <button
                             type="button"
                             className="cancel-btn"
-                            onClick={
-                                handleCancel
-                            }
+                            onClick={handleCancel}
                             disabled={loading}
                         >
                             Cancel
@@ -916,9 +933,7 @@ function Profile() {
                         <button
                             type="button"
                             className="save-profile-btn"
-                            onClick={
-                                handleSave
-                            }
+                            onClick={handleSave}
                             disabled={loading}
                         >
                             {loading
@@ -951,6 +966,8 @@ function Profile() {
 
                     <div className="account-grid">
 
+                        {/* USERNAME */}
+
                         <div className="account-item">
 
                             <div className="account-icon">
@@ -969,6 +986,8 @@ function Profile() {
                             </div>
 
                         </div>
+
+                        {/* EMAIL */}
 
                         <div className="account-item">
 
@@ -989,6 +1008,8 @@ function Profile() {
 
                         </div>
 
+                        {/* PHONE */}
+
                         <div className="account-item">
 
                             <div className="account-icon">
@@ -1007,6 +1028,8 @@ function Profile() {
                             </div>
 
                         </div>
+
+                        {/* RISK LEVEL */}
 
                         <div className="account-item">
 
@@ -1032,6 +1055,8 @@ function Profile() {
 
                         </div>
 
+                        {/* USER ID */}
+
                         <div className="account-item">
 
                             <div className="account-icon">
@@ -1051,6 +1076,8 @@ function Profile() {
                             </div>
 
                         </div>
+
+                        {/* JOINED DATE */}
 
                         <div className="account-item">
 
