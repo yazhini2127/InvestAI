@@ -16,43 +16,58 @@ const {
 
 const buyInvestment = (req, res) => {
 
-    // Get logged-in user ID from JWT
+    // Logged-in user from JWT
     const user_id = req.user.id;
 
     const {
         investment_id,
+        platform_id,
         quantity
     } = req.body;
 
 
-    // -----------------------------
-    // Validation
-    // -----------------------------
+    // =================================================
+    // VALIDATION
+    // =================================================
 
-    if (!investment_id || !quantity) {
+    if (!investment_id || !platform_id || !quantity) {
         return res.status(400).json({
             success: false,
             message:
-                "Investment ID and Quantity are required"
+                "Investment ID, Platform ID and Quantity are required"
         });
     }
 
 
-    if (Number(quantity) <= 0) {
+    const buyQuantity = Number(quantity);
+    const platformId = Number(platform_id);
+    const investmentId = Number(investment_id);
+
+
+    if (!Number.isInteger(buyQuantity) || buyQuantity <= 0) {
         return res.status(400).json({
             success: false,
             message:
-                "Quantity must be greater than 0"
+                "Quantity must be a positive whole number"
         });
     }
 
 
-    // -----------------------------
-    // Get Investment
-    // -----------------------------
+    if (!Number.isInteger(platformId) || platformId <= 0) {
+        return res.status(400).json({
+            success: false,
+            message:
+                "Valid Platform ID is required"
+        });
+    }
+
+
+    // =================================================
+    // GET INVESTMENT
+    // =================================================
 
     getInvestment(
-        investment_id,
+        investmentId,
         (investmentError, investmentResult) => {
 
             if (investmentError) {
@@ -78,22 +93,18 @@ const buyInvestment = (req, res) => {
             }
 
 
-            const investment =
-                investmentResult[0];
+            const investment = investmentResult[0];
 
             const price =
                 Number(investment.current_price);
-
-            const buyQuantity =
-                Number(quantity);
 
             const totalAmount =
                 price * buyQuantity;
 
 
-            // -----------------------------
-            // Get User Wallet
-            // -----------------------------
+            // =================================================
+            // GET WALLET
+            // =================================================
 
             getWallet(
                 user_id,
@@ -122,24 +133,25 @@ const buyInvestment = (req, res) => {
                     }
 
 
-                    const wallet =
-                        walletResult[0];
+                    const wallet = walletResult[0];
 
                     const balance =
                         Number(wallet.balance);
 
 
-                    // -----------------------------
-                    // Check Balance
-                    // -----------------------------
+                    // =================================================
+                    // CHECK WALLET BALANCE
+                    // =================================================
 
                     if (balance < totalAmount) {
                         return res.status(400).json({
                             success: false,
                             message:
                                 "Insufficient wallet balance",
+
                             required:
                                 totalAmount,
+
                             available:
                                 balance
                         });
@@ -150,9 +162,9 @@ const buyInvestment = (req, res) => {
                         balance - totalAmount;
 
 
-                    // -----------------------------
-                    // Update Wallet
-                    // -----------------------------
+                    // =================================================
+                    // UPDATE WALLET
+                    // =================================================
 
                     updateWallet(
                         user_id,
@@ -173,13 +185,14 @@ const buyInvestment = (req, res) => {
                             }
 
 
-                            // -----------------------------
-                            // Check Portfolio
-                            // -----------------------------
+                            // =================================================
+                            // CHECK PLATFORM-WISE PORTFOLIO
+                            // =================================================
 
                             getPortfolioInvestment(
                                 user_id,
-                                investment_id,
+                                investmentId,
+                                platformId,
                                 (
                                     portfolioError,
                                     portfolioResult
@@ -199,9 +212,9 @@ const buyInvestment = (req, res) => {
                                     }
 
 
-                                    // -----------------------------
-                                    // Save BUY Transaction
-                                    // -----------------------------
+                                    // =================================================
+                                    // SAVE TRANSACTION
+                                    // =================================================
 
                                     const saveBuyTransaction =
                                         () => {
@@ -209,7 +222,10 @@ const buyInvestment = (req, res) => {
                                             createTransaction(
                                                 {
                                                     user_id,
-                                                    investment_id,
+                                                    investment_id:
+                                                        investmentId,
+                                                    platform_id:
+                                                        platformId,
                                                     transaction_type:
                                                         "BUY",
                                                     amount:
@@ -240,6 +256,7 @@ const buyInvestment = (req, res) => {
 
                                                     return res.status(201).json({
                                                         success: true,
+
                                                         message:
                                                             "Investment purchased successfully",
 
@@ -249,6 +266,9 @@ const buyInvestment = (req, res) => {
 
                                                             investment:
                                                                 investment.investment_name,
+
+                                                            platform_id:
+                                                                platformId,
 
                                                             quantity:
                                                                 buyQuantity,
@@ -268,9 +288,9 @@ const buyInvestment = (req, res) => {
                                         };
 
 
-                                    // -----------------------------
-                                    // Existing Portfolio
-                                    // -----------------------------
+                                    // =================================================
+                                    // EXISTING PLATFORM PORTFOLIO
+                                    // =================================================
 
                                     if (
                                         portfolioResult.length > 0
@@ -279,15 +299,17 @@ const buyInvestment = (req, res) => {
                                         const portfolio =
                                             portfolioResult[0];
 
+
                                         const newQuantity =
                                             Number(
                                                 portfolio.quantity
                                             ) +
                                             buyQuantity;
 
+
                                         const newInvestedAmount =
                                             Number(
-                                                portfolio.invested_amount
+                                                portfolio.invested_amount || 0
                                             ) +
                                             totalAmount;
 
@@ -323,18 +345,25 @@ const buyInvestment = (req, res) => {
                                     }
 
 
-                                    // -----------------------------
-                                    // New Portfolio
-                                    // -----------------------------
+                                    // =================================================
+                                    // CREATE NEW PLATFORM PORTFOLIO
+                                    // =================================================
 
                                     else {
 
                                         createPortfolio(
                                             {
                                                 user_id,
-                                                investment_id,
+
+                                                investment_id:
+                                                    investmentId,
+
+                                                platform_id:
+                                                    platformId,
+
                                                 quantity:
                                                     buyQuantity,
+
                                                 invested_amount:
                                                     totalAmount
                                             },
@@ -379,47 +408,69 @@ const buyInvestment = (req, res) => {
 
 const sellInvestment = (req, res) => {
 
-    // Get logged-in user ID from JWT
+    // Logged-in user from JWT
     const user_id = req.user.id;
 
     const {
         investment_id,
+        platform_id,
         quantity
     } = req.body;
 
 
-    // -----------------------------
-    // Validation
-    // -----------------------------
+    // =================================================
+    // VALIDATION
+    // =================================================
 
-    if (!investment_id || !quantity) {
+    if (!investment_id || !platform_id || !quantity) {
         return res.status(400).json({
             success: false,
             message:
-                "Investment ID and Quantity are required"
+                "Investment ID, Platform ID and Quantity are required"
         });
     }
 
+
+    const investmentId =
+        Number(investment_id);
+
+    const platformId =
+        Number(platform_id);
 
     const sellQuantity =
         Number(quantity);
 
 
-    if (sellQuantity <= 0) {
+    if (
+        !Number.isInteger(sellQuantity) ||
+        sellQuantity <= 0
+    ) {
         return res.status(400).json({
             success: false,
             message:
-                "Quantity must be greater than 0"
+                "Quantity must be a positive whole number"
         });
     }
 
 
-    // -----------------------------
-    // Get Investment
-    // -----------------------------
+    if (
+        !Number.isInteger(platformId) ||
+        platformId <= 0
+    ) {
+        return res.status(400).json({
+            success: false,
+            message:
+                "Valid Platform ID is required"
+        });
+    }
+
+
+    // =================================================
+    // GET INVESTMENT
+    // =================================================
 
     getInvestment(
-        investment_id,
+        investmentId,
         (investmentError, investmentResult) => {
 
             if (investmentError) {
@@ -448,20 +499,23 @@ const sellInvestment = (req, res) => {
             const investment =
                 investmentResult[0];
 
+
             const price =
                 Number(investment.current_price);
+
 
             const totalAmount =
                 price * sellQuantity;
 
 
-            // -----------------------------
-            // Get User Portfolio
-            // -----------------------------
+            // =================================================
+            // GET PLATFORM-WISE PORTFOLIO
+            // =================================================
 
             getPortfolioInvestment(
                 user_id,
-                investment_id,
+                investmentId,
+                platformId,
                 (
                     portfolioError,
                     portfolioResult
@@ -485,7 +539,7 @@ const sellInvestment = (req, res) => {
                         return res.status(400).json({
                             success: false,
                             message:
-                                "You don't own this investment"
+                                "You don't own this investment on the selected platform"
                         });
                     }
 
@@ -493,15 +547,16 @@ const sellInvestment = (req, res) => {
                     const portfolio =
                         portfolioResult[0];
 
+
                     const currentQuantity =
                         Number(
                             portfolio.quantity
                         );
 
 
-                    // -----------------------------
-                    // Check Quantity
-                    // -----------------------------
+                    // =================================================
+                    // CHECK QUANTITY
+                    // =================================================
 
                     if (
                         sellQuantity >
@@ -509,6 +564,7 @@ const sellInvestment = (req, res) => {
                     ) {
                         return res.status(400).json({
                             success: false,
+
                             message:
                                 "Insufficient investment quantity",
 
@@ -526,23 +582,27 @@ const sellInvestment = (req, res) => {
                         sellQuantity;
 
 
-                    // -----------------------------
-                    // Calculate Remaining Amount
-                    // -----------------------------
+                    // =================================================
+                    // CALCULATE REMAINING INVESTED AMOUNT
+                    // =================================================
+
+                    const investedAmount =
+                        Number(
+                            portfolio.invested_amount || 0
+                        );
+
 
                     const averagePrice =
-                        Number(
-                            portfolio.invested_amount
-                        ) /
-                        currentQuantity;
+                        currentQuantity > 0
+                            ? investedAmount /
+                              currentQuantity
+                            : 0;
 
 
                     const remainingInvestedAmount =
                         Math.max(
                             0,
-                            Number(
-                                portfolio.invested_amount
-                            ) -
+                            investedAmount -
                             (
                                 averagePrice *
                                 sellQuantity
@@ -550,9 +610,9 @@ const sellInvestment = (req, res) => {
                         );
 
 
-                    // -----------------------------
-                    // Update Portfolio
-                    // -----------------------------
+                    // =================================================
+                    // UPDATE PORTFOLIO
+                    // =================================================
 
                     const updatePortfolioAfterSell =
                         (callback) => {
@@ -595,9 +655,9 @@ const sellInvestment = (req, res) => {
                             }
 
 
-                            // -----------------------------
-                            // Get User Wallet
-                            // -----------------------------
+                            // =================================================
+                            // GET WALLET
+                            // =================================================
 
                             getWallet(
                                 user_id,
@@ -634,6 +694,7 @@ const sellInvestment = (req, res) => {
                                     const wallet =
                                         walletResult[0];
 
+
                                     const currentBalance =
                                         Number(
                                             wallet.balance
@@ -645,9 +706,9 @@ const sellInvestment = (req, res) => {
                                         totalAmount;
 
 
-                                    // -----------------------------
-                                    // Update Wallet
-                                    // -----------------------------
+                                    // =================================================
+                                    // UPDATE WALLET
+                                    // =================================================
 
                                     updateWallet(
                                         user_id,
@@ -672,18 +733,26 @@ const sellInvestment = (req, res) => {
                                             }
 
 
-                                            // -----------------------------
-                                            // Save SELL Transaction
-                                            // -----------------------------
+                                            // =================================================
+                                            // SAVE SELL TRANSACTION
+                                            // =================================================
 
                                             createTransaction(
                                                 {
                                                     user_id,
-                                                    investment_id,
+
+                                                    investment_id:
+                                                        investmentId,
+
+                                                    platform_id:
+                                                        platformId,
+
                                                     transaction_type:
                                                         "SELL",
+
                                                     amount:
                                                         totalAmount,
+
                                                     quantity:
                                                         sellQuantity
                                                 },
@@ -710,6 +779,7 @@ const sellInvestment = (req, res) => {
 
                                                     return res.status(200).json({
                                                         success: true,
+
                                                         message:
                                                             "Investment sold successfully",
 
@@ -719,6 +789,9 @@ const sellInvestment = (req, res) => {
 
                                                             investment:
                                                                 investment.investment_name,
+
+                                                            platform_id:
+                                                                platformId,
 
                                                             quantity:
                                                                 sellQuantity,

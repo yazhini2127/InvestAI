@@ -45,6 +45,7 @@ const getWallet = (userId, callback) => {
 const getPortfolioInvestment = (
     userId,
     investmentId,
+    platformId,
     callback
 ) => {
     const sql = `
@@ -52,18 +53,24 @@ const getPortfolioInvestment = (
             portfolio_id,
             user_id,
             investment_id,
+            platform_id,
             quantity,
             invested_amount,
             purchase_date
         FROM portfolio
         WHERE user_id = ?
         AND investment_id = ?
+        AND platform_id = ?
         LIMIT 1
     `;
 
     db.query(
         sql,
-        [userId, investmentId],
+        [
+            userId,
+            investmentId,
+            platformId
+        ],
         callback
     );
 };
@@ -86,7 +93,10 @@ const updateWallet = (
 
     db.query(
         sql,
-        [balance, userId],
+        [
+            balance,
+            userId
+        ],
         callback
     );
 };
@@ -103,6 +113,7 @@ const createPortfolio = (
     const {
         user_id,
         investment_id,
+        platform_id,
         quantity,
         invested_amount
     } = data;
@@ -112,11 +123,12 @@ const createPortfolio = (
         (
             user_id,
             investment_id,
+            platform_id,
             quantity,
             invested_amount,
             purchase_date
         )
-        VALUES (?, ?, ?, ?, CURDATE())
+        VALUES (?, ?, ?, ?, ?, CURDATE())
     `;
 
     db.query(
@@ -124,6 +136,7 @@ const createPortfolio = (
         [
             user_id,
             investment_id,
+            platform_id,
             quantity,
             invested_amount
         ],
@@ -194,6 +207,7 @@ const createTransaction = (
     const {
         user_id,
         investment_id,
+        platform_id,
         transaction_type,
         amount,
         quantity
@@ -204,11 +218,12 @@ const createTransaction = (
         (
             user_id,
             investment_id,
+            platform_id,
             transaction_type,
             amount,
             quantity
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
@@ -216,6 +231,7 @@ const createTransaction = (
         [
             user_id,
             investment_id,
+            platform_id,
             transaction_type,
             amount,
             quantity

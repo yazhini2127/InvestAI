@@ -11,7 +11,7 @@ const db = require("./config/db");
 // =====================================================
 // ROUTES
 // =====================================================
-
+const platformRoutes = require("./routes/PlatformRoutes");
 const authRoutes = require("./routes/authRoutes");
 const portfolioRoutes = require("./routes/PortfolioRoutes");
 const transactionRoutes = require("./routes/TransactionRoutes");
@@ -107,13 +107,21 @@ app.use(
     "/api/profile",
     profileRoutes
 );
-
+// Users / Profile compatibility route
+app.use(
+    "/api/users",
+    profileRoutes
+);
 // Settings
 app.use(
     "/api/settings",
     settingsRoutes
 );
-
+// Platforms
+app.use(
+    "/api/platforms",
+    platformRoutes
+);
 // =====================================================
 // HOME ROUTE
 // =====================================================

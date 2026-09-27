@@ -27,7 +27,27 @@ const findUserByEmail = (email, callback) => {
   db.query(sql, [email], callback);
 };
 
+// Find User by ID
+const findUserById = (user_id, callback) => {
+  const sql = "SELECT * FROM users WHERE user_id = ?";
+
+  db.query(sql, [user_id], callback);
+};
+
+// Change Password
+const changePassword = (user_id, newPassword, callback) => {
+  const sql = `
+    UPDATE users
+    SET password = ?
+    WHERE user_id = ?
+  `;
+
+  db.query(sql, [newPassword, user_id], callback);
+};
+
 module.exports = {
   createUser,
   findUserByEmail,
+  findUserById,
+  changePassword,
 };
